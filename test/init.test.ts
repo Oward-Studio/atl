@@ -169,7 +169,7 @@ describe('atl init', () => {
     // could not read back.
     const keys = allProperties().map((p) => p.key)
     for (const expected of ['ref', 'state', 'priority', 'dev_label', 'linked_projects']) {
-      assert.ok(keys.includes(expected), `${expected} manque au schéma`)
+      assert.ok(keys.includes(expected), `${expected} is missing from the schema`)
     }
     assert.deepEqual(
       TYPE_SEEDS.map((t) => t.key).sort(),
@@ -228,7 +228,7 @@ describe('atl init', () => {
       assert.equal(result.code, 1)
       assert.match(result.stderr, /different format/)
       assert.match(result.stderr, /found number, expected text/)
-      assert.deepEqual(api.state.types, [], 'rien n’a été créé')
+      assert.deepEqual(api.state.types, [], 'nothing was created')
     })
   })
 
@@ -254,7 +254,7 @@ describe('atl init', () => {
       const result = await runCli(['init', '--space', 'nawak'], { sandbox, apiUrl: api.url })
 
       assert.equal(result.code, 3)
-      assert.deepEqual(api.state.types, [], 'rien n’a été créé')
+      assert.deepEqual(api.state.types, [], 'nothing was created')
     })
 
     it('announces the targeted space before writing', async () => {
@@ -297,7 +297,7 @@ describe('atl init', () => {
       assert.equal(result.code, 4)
       assert.match(result.stderr, /dev_issue/)
       assert.match(result.stderr, /atl init/)
-      assert.deepEqual(api.state.created, [], 'rien n’a été créé')
+      assert.deepEqual(api.state.created, [], 'nothing was created')
     })
 
     it('project new exits with 4, naming atl init', async () => {

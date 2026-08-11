@@ -38,7 +38,7 @@ describe('skill/SKILL.md', () => {
   const lines = invocations(SKILL)
 
   it('contains executable examples', () => {
-    assert.ok(lines.length >= 10, `${lines.length} invocation(s) trouvée(s)`)
+    assert.ok(lines.length >= 10, `${lines.length} invocation(s) found`)
   })
 
   for (const line of lines) {

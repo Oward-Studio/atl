@@ -74,7 +74,7 @@ describe('atl issue ac', () => {
     assert.equal(a.length, b.length)
 
     const changed = a.map((line, i) => (line === b[i] ? undefined : i)).filter((i) => i !== undefined)
-    assert.equal(changed.length, 1, `lignes changées : ${changed.join(', ')}`)
+    assert.equal(changed.length, 1, `changed lines: ${changed.join(', ')}`)
     assert.equal(a[changed[0] as number], (b[changed[0] as number] as string).replace('[ ]', '[x]'))
   })
 
@@ -165,7 +165,7 @@ describe('atl issue ac', () => {
 
   it('refuses to write a body containing a table', async () => {
     api.state.bodies['tk-1'] = [
-      '| Colonne | Valeur |',
+      '| Column | Value |',
       '|---|---|',
       '| a | b |',
       '',

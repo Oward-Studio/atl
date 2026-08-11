@@ -79,7 +79,7 @@ describe('atl issue new', () => {
   })
 
   it('attaches to the project resolved by name', async () => {
-    await create(['Ticket projeté', '--project', 'anytypelinear'])
+    await create(['Issue with a project', '--project', 'anytypelinear'])
     const props = api.state.created.at(-1)?.properties ?? []
     const linked = props.find((p) => p.key === 'linked_projects')
     assert.deepEqual(linked?.['objects'], ['proj-atl'])
@@ -103,7 +103,7 @@ describe('atl issue new', () => {
 
   it('puts the description before the criteria section', async () => {
     const issue = await create([
-      'Ticket décrit',
+      'Described issue',
       '--description',
       'The context of the issue.',
       '--ac',
@@ -126,7 +126,7 @@ describe('atl issue new', () => {
   })
 
   it('does not warn when criteria are given', async () => {
-    const result = await runCli(['issue', 'new', 'Ticket critérié', '--ac', 'x', '--json'], {
+    const result = await runCli(['issue', 'new', 'Issue with criteria', '--ac', 'x', '--json'], {
       sandbox,
       apiUrl: api.url,
     })
@@ -147,8 +147,8 @@ describe('atl issue new', () => {
   })
 
   it('strips the phase prefix from the title to derive the ref', async () => {
-    const issue = await create(['[3] Un ticket phasé'])
-    assert.equal(issue.ref, 'un-ticket-phase')
+    const issue = await create(['[3] A phased issue'])
+    assert.equal(issue.ref, 'a-phased-issue')
   })
 
   it('exits with 2 without a title outside a TTY, instead of hanging', async () => {
@@ -189,7 +189,7 @@ describe('atl issue new', () => {
   })
 
   it('the created issue is visible to issue list and issue view', async () => {
-    const issue = await create(['Ticket relisible', '--state', 'todo', '--ac', 'vérifiable'])
+    const issue = await create(['Reviewable issue', '--state', 'todo', '--ac', 'verifiable'])
 
     const listed = parseJson(
       await runCli(['ls', '--json'], { sandbox, apiUrl: api.url }),

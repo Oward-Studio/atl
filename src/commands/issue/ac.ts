@@ -20,8 +20,8 @@ const ACTIONS = ['check', 'uncheck', 'add'] as const
 type Action = (typeof ACTIONS)[number]
 
 /**
- * `atl issue ac <ref>` liste, `atl issue ac check|uncheck <ref> <n…>` cochent,
- * `atl issue ac add <ref> "texte"` ajoute.
+ * `atl issue ac <ref>` lists, `atl issue ac check|uncheck <ref> <n…>` tick and untick,
+ * `atl issue ac add <ref> "text"` appends.
  */
 export async function issueAc(ctx: CommandContext): Promise<void> {
   const [first, ...rest] = ctx.args.positionals

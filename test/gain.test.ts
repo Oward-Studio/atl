@@ -123,7 +123,7 @@ describe('atl gain', () => {
       baseline: number
     }
 
-    assert.ok(data.baseline <= data.absorbed, `étalon ${data.baseline} > absorbé ${data.absorbed}`)
+    assert.ok(data.baseline <= data.absorbed, `baseline ${data.baseline} > absorbed ${data.absorbed}`)
   })
 
   it('never prints 100 % when the saving is not total', async () => {
@@ -160,7 +160,7 @@ describe('atl gain', () => {
     // A single ~100-byte append: the cost must vanish in the noise of Node's
     // startup.
     const entries = await journal()
-    assert.ok((entries[0]?.ms ?? 0) < 5_000, 'durée enregistrée plausible')
+    assert.ok((entries[0]?.ms ?? 0) < 5_000, 'a plausible recorded duration')
   })
 
   describe('baseline ceiling', () => {
@@ -194,7 +194,7 @@ describe('atl gain', () => {
         capped: number
       }
 
-      assert.equal(data.absorbed, 1_000_000, 'mesuré, jamais rogné')
+      assert.equal(data.absorbed, 1_000_000, 'measured, never trimmed')
       assert.equal(data.baseline, 50_000)
       assert.equal(data.ceiling, 50_000)
       assert.equal(data.capped, 1)

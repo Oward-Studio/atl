@@ -42,14 +42,12 @@ down (`docs/ANYTYPE-LIMITS.md` §1.13).
 
 ## Everything is written in English
 
-Code, comments, tests, documentation, commit messages, pull requests and CLI output. This is
-enforced by `test/language.test.ts`, which scans strings and comments across the repository and
-fails the build on French. It exists because reviewing by eye did not work: the switch to English
-was declared finished several times while error messages, `--help` descriptions and number
-formatting were still French.
+Code, comments, tests, documentation, commit messages, pull requests and CLI output. If you touch a
+file and find a stray word in another language, translate it in the same commit — nobody opens a
+pull request to fix three comments, so passing through is the only moment it happens.
 
-If it flags a line where a foreign word is genuinely **data** rather than prose, add it to
-`ALLOWED` with a comment stating why. A growing list means the rule is being worked around.
+Anytype content is the exception, and not the repository's to translate: the issue titles,
+descriptions and acceptance criteria stored in a space belong to whoever owns it.
 
 ## Running the tests
 
@@ -74,9 +72,9 @@ deliberately given up with the reasoning. It is the most valuable file in the re
 rediscovering any of it costs hours.
 
 If you measure something that contradicts it, **say so in an issue** — that is more useful than a
-patch. One entry in that file was wrong for weeks: it claimed renaming a property key does not
-propagate to objects. It does, and finding out allowed a whole class of workaround code to be
-deleted.
+patch. An entry that turns out to be wrong is worth more attention than a bug: the CLI carries
+code shaped around each of these limits, and a limit that does not hold is a whole branch of that
+code with no reason to exist.
 
 ## Commits
 

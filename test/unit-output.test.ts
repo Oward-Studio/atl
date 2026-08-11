@@ -48,25 +48,25 @@ describe('table', () => {
   })
 })
 
-describe('couleur', () => {
+describe('colour', () => {
   it('measures the visible length ignoring ANSI sequences', () => {
     const esc = String.fromCharCode(27)
-    const painted = `${esc}[31mrouge${esc}[39m`
+    const painted = `${esc}[31mvalue${esc}[39m`
 
     assert.equal(visibleLength(painted), 5)
-    assert.equal(stripAnsi(painted), 'rouge')
+    assert.equal(stripAnsi(painted), 'value')
   })
 
   it('emits no sequence when colour is disabled', async () => {
     const { color } = await import('../src/lib/color.ts')
     setColorEnabled(false)
-    assert.equal(color.red('rouge'), 'rouge')
+    assert.equal(color.red('value'), 'value')
   })
 })
 
-describe('texte', () => {
+describe('text', () => {
   it('normalises case, diacritics and spaces', () => {
-    assert.equal(normalize('  À   Faire '), 'a faire')
+    assert.equal(normalize('  ÀÉÎÕÜ   Test '), 'aeiou test')
   })
 
   it('slugifies a title into a branch name, phase prefix removed', () => {

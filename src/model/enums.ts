@@ -7,14 +7,11 @@ import type { TagColor } from './palette.ts'
  * States and priorities are **identified by their tag key**, never by their display
  * name.
  *
- * A tag renamed in the application keeps its key — measured, and the reason this
- * module works that way: the owner renamed the six states to English and every
- * name-based comparison in the CLI broke at once (docs/ANYTYPE-LIMITS.md §1.13).
- * Display names belong to whoever owns the space; keys are the contract.
+ * A tag renamed in the application keeps its key, so display names belong to whoever
+ * owns the space while keys are the contract (docs/ANYTYPE-LIMITS.md §1.13). Comparing
+ * names instead would break the moment a space is renamed.
  *
- * Keys are English, and so is everything the CLI writes. A space whose tags carry other
- * keys is not read: `atl init` seeds these, and renaming a tag key in Anytype
- * propagates to every object carrying it (docs/ANYTYPE-LIMITS.md §1.13).
+ * `atl init` seeds the keys below. A space carrying others is not read.
  */
 
 export const STATE_KEYS = ['backlog', 'todo', 'in_progress', 'in_review', 'done', 'canceled'] as const

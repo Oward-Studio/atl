@@ -13,10 +13,7 @@ type Row = {
   projects: string[]
 }
 
-/**
- * Display names as the fake serves them — that space is named in French on purpose, so
- * the suite keeps proving a space bootstrapped before the English keys still reads.
- */
+/** Display names as the fake serves them, in the order `--sort state` must produce. */
 const STATE_ORDER = ['In Review', 'In Progress', 'Todo', 'Backlog', 'Done', 'Canceled']
 const PRIORITY_ORDER = ['Urgent', 'High', 'Medium', 'Low', 'No priority']
 
@@ -187,7 +184,7 @@ describe('atl issue list', () => {
   it('caps the warning so it does not drown the output', async () => {
     const result = await runCli(['ls', '--all'], { sandbox, apiUrl: api.url })
     const detail = result.stderr.split('\n').filter((l) => l.includes('→')).length
-    assert.ok(detail <= 5, `${detail} lignes de détail`)
+    assert.ok(detail <= 5, `${detail} detail lines`)
   })
 
   it('the detection adds no API call', async () => {
@@ -273,7 +270,7 @@ describe('atl issue list', () => {
       const line = (ref: string) =>
         result.stdout.split('\n').find((l) => l.includes(ref)) ?? ''
 
-      assert.match(line('atl-label-sort'), /⊘/, 'bloqué par tk-2 via son propre blocked_by')
+      assert.match(line('atl-label-sort'), /⊘/, 'blocked by tk-2 through its own blocked_by')
       assert.match(line('atl-review-migration'), /⊘/, 'blocked through tk-1 blocking it')
       assert.doesNotMatch(line('atl-doc-deploy'), /⊘/)
       assert.match(result.stderr, /⊘ blocked by an unfinished issue/)

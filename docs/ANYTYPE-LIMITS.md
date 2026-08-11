@@ -8,8 +8,8 @@ Every finding carries its date and its method. That is what makes it re-verifiab
 merely believable, and what prevents probing the same API again in six months — or reintroducing a
 command that was ruled out because it destroyed data.
 
-Anytype content stays in French throughout: state names, property keys and the acceptance-criteria
-heading are data stored in the owner's space, not interface strings.
+Anytype content — issue titles, descriptions, acceptance criteria — is data stored in the owner's
+space rather than interface strings, and the CLI never rewrites it to suit itself.
 
 ## 1. What the API cannot do
 
@@ -133,26 +133,21 @@ of Notion's synced relation.
 
 ### 1.13 Renaming: what follows, what does not
 
-Measured on the real space, with the delay that first fooled me.
+**Renaming a tag propagates** to every object carrying it, in **under 300 ms**. Measured across 234
+issues, none of which had to be rewritten: the name is resolved from the tag id at read time.
 
-**Renaming a tag propagates** to every object carrying it, in **under 300 ms**. The name is resolved
-from the tag id at read time, so no object needs rewriting. That is how the six state names moved to
-English across 234 issues without touching one of them. My first probe read the object immediately
-after the patch and concluded the opposite — the propagation is asynchronous, and reading at 0 ms
-catches the stale value.
+The propagation is **asynchronous**, which is worth knowing before probing it — reading an object at
+0 ms returns the stale value and suggests the opposite conclusion.
 
-**Renaming a tag key propagates too**, and so does **renaming a property key** — measured, and it
-corrects what this section claimed before. `etat` became `state`, `priorite` became `priority`,
-`branche_git_hub` became `github_branch`: every object reported the new key immediately afterwards,
-and the CLI read them without a migration. Objects therefore reference properties and tags **by id**,
-the key being a label on the definition rather than a copy stored per object.
+**Renaming a key propagates too**, for a tag as for a property. Every object reported the new key
+immediately afterwards, with no migration on the CLI's side. Objects therefore reference properties
+and tags **by id**, a key being a label on the definition rather than a copy stored per object.
 
-That is what allowed the French keys Anytype had minted from the original French names to be dropped
-from the code entirely. A space bootstrapped in French needs its keys renamed once — through the API,
-since the application exposes a type's or property's **name** but not its key.
+A key can only be renamed **through the API**: the application exposes a type's or a property's
+name, never its key.
 
 **Renaming a type key** goes through `update-type`, which means passing the full property list back
-(see below), and is the one rename this project has not exercised.
+(see below).
 
 **Renaming a property display name is free.** The CLI resolves properties by key, never by name.
 
@@ -230,7 +225,7 @@ Refs are quick to type and resolve by prefix.
 ### 2.5 A relation whose blocker is closed is not deleted
 
 Like Linear, whose documentation states that once the blocker is resolved *"the relationship moves
-under Related"*: the relation is **demoted** under "Lié" in `issue view`, never erased — it is
+under Related"*: the relation is **demoted** under `Related` in `issue view`, never erased — it is
 history. Cancelling an issue does not touch its relations.
 
 Original measurement: across 219 issues, a single dependency pointed at a cancelled issue, both of

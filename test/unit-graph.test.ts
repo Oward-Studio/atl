@@ -48,7 +48,7 @@ describe('blocking graph', () => {
       graph.blockersOf('b').map((l) => [l.id, l.declared]),
       [['a', false]],
     )
-    assert.equal(graph.isBlocked('b'), true, 'un blocage déclaré d’un seul côté bloque quand même')
+    assert.equal(graph.isBlocked('b'), true, 'a block declared on one side only still blocks')
   })
 
   it('does not count twice a relation posted on both sides', () => {
@@ -56,7 +56,7 @@ describe('blocking graph', () => {
 
     assert.equal(graph.blockersOf('a').length, 1)
     assert.equal(graph.blockersOf('a')[0]?.declared, true)
-    assert.deepEqual(graph.halfPosed(), [], 'relation complète : rien à signaler')
+    assert.deepEqual(graph.halfPosed(), [], 'complete relation: nothing to report')
   })
 
   it('a blocker that is done or cancelled no longer blocks', () => {
