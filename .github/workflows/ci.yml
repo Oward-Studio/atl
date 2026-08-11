@@ -26,3 +26,23 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
+
+  # The single check branch protection requires, and the reason it exists: job names
+  # derived from a matrix (`test (20.11)`) change whenever the matrix does, and a
+  # required check that stops being reported leaves every pull request waiting for
+  # something that will never arrive — pending for ever rather than failing loudly.
+  # Adding a job or moving to another Node version now means editing `needs` here,
+  # with the protected name untouched.
+  ci:
+    # `always()` is load-bearing. Without it this job is *skipped* when `test` fails,
+    # and GitHub counts a skipped required check as a passing one.
+    if: always()
+    needs: [test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every required job must have succeeded
+        run: |
+          if [ "${{ needs.test.result }}" != "success" ]; then
+            echo "test → ${{ needs.test.result }}"
+            exit 1
+          fi
