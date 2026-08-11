@@ -1,0 +1,32 @@
+{
+  "name": "atl",
+  "version": "0.1.0",
+  "license": "MIT",
+  "private": true,
+  "description": "Anytype as Linear — CLI for dev issues & projects, backed by Anytype",
+  "type": "module",
+  "bin": {
+    "atl": "bin/atl.mjs"
+  },
+  "engines": {
+    "node": ">=20.11"
+  },
+  "files": [
+    "bin",
+    "src",
+    "docs"
+  ],
+  "scripts": {
+    "atl": "node bin/atl.mjs",
+    "test": "node --import tsx --test test/*.test.ts",
+    "test:live": "node --import tsx --test test-live/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "tsx": "^4.19.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0"
+  }
+}
