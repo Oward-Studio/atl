@@ -445,7 +445,7 @@ async function handle(
     new RegExp(`^/v1/spaces/${SPACE_ID}/types/([\\w-]+)/templates$`),
   )
   if (templatesMatch) {
-    send(200, page([{ id: `template-${templatesMatch[1]}`, name: 'Modèle' }]))
+    send(200, page([{ id: `template-${templatesMatch[1]}`, name: 'Template' }]))
     return
   }
 

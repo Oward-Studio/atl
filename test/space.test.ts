@@ -52,7 +52,7 @@ describe('atl space', () => {
     const result = await runCli(['space', 'nawak'], { sandbox, apiUrl: api.url })
 
     assert.equal(result.code, 3)
-    assert.equal(await readFile(sandbox.configFile, 'utf8'), before, 'résolu avant d’écrire')
+    assert.equal(await readFile(sandbox.configFile, 'utf8'), before, 'resolved before writing')
   })
 
   it('keeps the rest of the config when changing space', async () => {

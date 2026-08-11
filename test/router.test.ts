@@ -92,7 +92,7 @@ describe('routing', () => {
           assert.doesNotMatch(
             code,
             new RegExp(forbidden),
-            `${file.slice(SRC.length + 1)} référence ${forbidden}`,
+            `${file.slice(SRC.length + 1)} references ${forbidden}`,
           )
         }
       }
@@ -102,7 +102,7 @@ describe('routing', () => {
       for (const command of router.commands) {
         assert.doesNotMatch(
           command.summary,
-          /crée la branche|checkout|git (add|commit|push|pull|branch|switch)/i,
+          /creates? the branch|checkout|git (add|commit|push|pull|branch|switch)/i,
           `atl ${command.path.join(' ')}`,
         )
       }

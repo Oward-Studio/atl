@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
-# Installe atl sur ce poste : dépendances, binaire global, skill Claude Code.
+# Installs atl on this machine: dependencies, global binary, Claude Code skill.
 #
 # The skill is a **symlink** to the repo, not a copy: `git pull` is enough
-# à le mettre à jour, et il ne peut pas dériver de la CLI qu'il documente.
+# to update it, and it cannot drift from the CLI it documents.
 set -euo pipefail
 
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 skills_dir="${HOME}/.claude/skills"
 link="${skills_dir}/atl"
 
-echo "→ dépendances"
+echo "→ dependencies"
 npm install --silent
 
-echo "→ binaire global (npm link)"
+echo "→ global binary (npm link)"
 npm link >/dev/null
 
-echo "→ skill Claude Code"
+echo "→ Claude Code skill"
 mkdir -p "${skills_dir}"
 
 if [ -L "${link}" ]; then
