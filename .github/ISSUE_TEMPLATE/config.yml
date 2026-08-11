@@ -1,0 +1,14 @@
+# Blank issues stay open on purpose: a question, or a measurement that contradicts
+# docs/ANYTYPE-LIMITS.md, does not fit a bug form and is worth more than one.
+blank_issues_enabled: true
+contact_links:
+  - name: Anytype itself
+    url: https://community.anytype.io
+    about: >-
+      A question about Anytype, its local API or its data model belongs to the Anytype
+      community rather than here. This repository only covers the `atl` CLI.
+  - name: Feature requests
+    url: https://github.com/Oward-Studio/atl/blob/main/CONTRIBUTING.md#scope
+    about: >-
+      Read the scope rule first. This CLI deliberately stops where Linear stops, and most
+      feature requests are declined for that reason alone.

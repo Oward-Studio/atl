@@ -190,6 +190,10 @@ release: it is the only thing that catches the day an assumption stops holding.
 No build step: `tsx` runs `src/` directly. It costs about 80 ms of the ~160 ms startup floor —
 a deliberate trade, documented with the measurements in `docs/ANYTYPE-LIMITS.md` §2.7.
 
+Issues and pull requests are welcome, with the scope rules and the frozen decisions stated in
+[`CONTRIBUTING.md`](CONTRIBUTING.md) — worth a read before writing a patch, since a change can be
+declined on scope alone. This is a personal tool and no support is promised.
+
 The issues of the ⚡ AnyTypeLinear project, inside Anytype, hold the decision history.
 [`docs/ANYTYPE-LIMITS.md`](docs/ANYTYPE-LIMITS.md) keeps what would be expensive to rediscover:
 the API limits measured one by one, and the features deliberately given up, with the reasoning.

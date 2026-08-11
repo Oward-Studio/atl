@@ -129,7 +129,7 @@ const sourceFiles = (): string[] => {
       // A directory absent from a checkout is not a failure.
     }
   }
-  for (const file of ['README.md', 'install.sh', 'package.json']) found.push(file)
+  for (const file of ['README.md', 'CONTRIBUTING.md', 'install.sh', 'package.json']) found.push(file)
   return found
 }
 

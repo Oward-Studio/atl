@@ -1,0 +1,79 @@
+name: Bug report
+description: Something the CLI does that it should not, or refuses to do.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        `atl` talks to Anytype's **local API**, which changes between Anytype releases. A report
+        without the Anytype version cannot be triaged: there is no way to tell a bug in the CLI
+        from an API that moved. The first two fields are what make the rest useful.
+
+  - type: input
+    id: anytype-version
+    attributes:
+      label: Anytype version
+      description: Anytype → Settings → About, or the desktop app's About window.
+      placeholder: "0.48.3"
+    validations:
+      required: true
+
+  - type: input
+    id: atl-version
+    attributes:
+      label: atl version and commit
+      description: Output of `atl --version`, plus `git rev-parse --short HEAD` in your clone.
+      placeholder: "0.1.0 · 4642a7a"
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Node version and OS
+      description: Output of `node --version`, and your operating system.
+      placeholder: "v22.14.0 · macOS 15.3"
+    validations:
+      required: true
+
+  - type: textarea
+    id: command
+    attributes:
+      label: The command you ran
+      description: The full command, and its output. Add `--json` if the table hides something.
+      render: shell
+      placeholder: |
+        $ atl issue done my-ref
+        ✗ …
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+    validations:
+      required: true
+
+  - type: textarea
+    id: status
+    attributes:
+      label: Output of `atl auth --status`
+      description: >-
+        Safe to paste: the app key is masked, and it reports the API URL, the space and whether
+        the connection works — which is what most reports turn out to hinge on.
+      render: shell
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: The Anytype desktop application was running when I ran the command.
+          required: true
+        - label: >-
+            I ran `npm test` on my clone and said so above if it failed — a failing suite points
+            at the environment rather than at the command.
+          required: false
