@@ -7,8 +7,10 @@ contact_links:
     about: >-
       A question about Anytype, its local API or its data model belongs to the Anytype
       community rather than here. This repository only covers the `atl` CLI.
-  - name: Feature requests
-    url: https://github.com/Oward-Studio/atl/blob/main/CONTRIBUTING.md#scope
+  - name: An idea, or something the CLI cannot do yet
+    url: https://github.com/Oward-Studio/atl/discussions/categories/ideas
     about: >-
-      Read the scope rule first. This CLI deliberately stops where Linear stops, and most
-      feature requests are declined for that reason alone.
+      Ideas live in Discussions rather than here, so the issue list stays a list of things
+      that are broken. Describe the workflow you are stuck on rather than the feature you
+      have in mind — that is what makes an idea arguable. A discussion becomes an issue
+      once it convinces.

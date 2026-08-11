@@ -10,6 +10,10 @@ on:
 
 jobs:
   test:
+    # Without this, the matrix names the check `test (20.11)`, which reads as a mystery
+    # number in the pull-request list. Renaming is safe only because branch protection
+    # requires `ci` below and never these names.
+    name: test node@${{ matrix.node }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -33,6 +37,11 @@ jobs:
   # something that will never arrive — pending for ever rather than failing loudly.
   # Adding a job or moving to another Node version now means editing `needs` here,
   # with the protected name untouched.
+  #
+  # Do not rename this job, and do not give it a `name:`. Its identifier is what branch
+  # protection stores; changing it leaves every pull request waiting for a check that is
+  # never reported. The jobs above are free to be renamed precisely because this one is
+  # not.
   ci:
     # `always()` is load-bearing. Without it this job is *skipped* when `test` fails,
     # and GitHub counts a skipped required check as a passing one.

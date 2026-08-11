@@ -7,10 +7,19 @@ as a surprise after the work is done.
 
 ## Scope
 
-**The CLI stops where Linear stops.** The point of the project is a terminal interface whose
-habits carry over from Linear, deliberately lighter in features. A capability Linear does not
-have is out of scope even when Anytype makes it easy — cycles, estimates, custom workflows,
-sub-issues, roadmaps.
+**Linear is the reference, not the ceiling.** The project exists to make a terminal interface
+whose habits carry over from Linear, deliberately lighter in features. That shape is what keeps
+the CLI learnable and cheap enough for an agent to drive — a reading of one issue costs about ten
+tokens — and features accumulated for their own sake are what would cost it.
+
+So the bar is high rather than closed. What clears it is a **workflow that is currently
+awkward**, described as such: what you were trying to do, where the CLI made you stop, and what
+you did instead. What rarely clears it is a capability named in the abstract, because there is no
+way to weigh it against the cost it adds to every other command.
+
+Ideas belong in [Discussions](https://github.com/Oward-Studio/atl/discussions/categories/ideas)
+rather than in the issue list, so that the issues stay a list of things that are broken. A
+discussion becomes an issue when it has convinced someone — which may well be you convincing me.
 
 **The CLI never runs a Git command.** It does not inspect the repository, does not check whether
 one exists, opens no pull request. Git context is an input the caller supplies:
