@@ -291,6 +291,8 @@ type FakeState = {
   types: { id: string; key: string; name: string; properties: unknown[] }[]
   /** Tags per property key, for properties created at run time. */
   createdTags: Record<string, { name: string; color: string }[]>
+  /** Ids removed through DELETE, so a suite can assert what was and was not touched. */
+  deleted: string[]
 }
 
 const page = <T>(data: T[]) => ({
@@ -314,6 +316,7 @@ export async function startFakeAnytype(
     properties: options.empty ? [] : PROPERTIES.map((p) => structuredClone(p)),
     types: options.empty ? [] : TYPES.map((t) => structuredClone(t)),
     createdTags: {},
+    deleted: [],
   }
 
   const server: Server = createServer((req, res) => {
@@ -493,6 +496,20 @@ async function handle(
   }
 
   const patchMatch = path.match(new RegExp(`^/v1/spaces/${SPACE_ID}/objects/([\\w-]+)$`))
+  if (patchMatch && req.method === 'DELETE') {
+    const id = patchMatch[1] as string
+    const before = state.tickets.length + state.projects.length
+    state.tickets = state.tickets.filter((o) => o.id !== id)
+    state.projects = state.projects.filter((o) => o.id !== id)
+    if (state.tickets.length + state.projects.length === before) {
+      send(404, { message: 'not found' })
+      return
+    }
+    state.deleted.push(id)
+    send(200, { object: { id } })
+    return
+  }
+
   if (patchMatch && req.method === 'PATCH') {
     const object = [...state.tickets, ...state.projects].find((o) => o.id === patchMatch[1])
     if (!object) {

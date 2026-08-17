@@ -112,6 +112,7 @@ atl issue new "title" -p high -l Bug --ac "one criterion"
 atl issue start <ref>                    # In progress + branch name + link
 atl issue ac check <ref> 1 2             # tick acceptance criteria
 atl issue block <ref> --by <ref2>        # dependencies, written on both sides
+atl issue delete <ref> [<ref>…]          # irreversible, asks before it acts
 atl gain                                 # tokens absorbed by atl instead of your context
 atl ls --json --fields ref,state,title   # JSON output trimmed to the useful fields
 ```

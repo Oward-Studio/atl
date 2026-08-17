@@ -41,3 +41,13 @@ export async function choose<T>(
   if (!chosen) throw usageError(`Choix invalide : ${answer}`)
   return chosen
 }
+
+/**
+ * A yes/no question, defaulting to **no**: the caller of a destructive command has to
+ * type something, and an empty line — a stray Return, a paste ending in a newline —
+ * cancels rather than confirms.
+ */
+export async function confirm(question: string): Promise<boolean> {
+  const answer = await ask(`${question} [y/N]`)
+  return /^(y|yes)$/i.test(answer.trim())
+}
