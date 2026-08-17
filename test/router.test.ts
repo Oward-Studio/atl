@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url'
 import { after, before, describe, it } from 'node:test'
 
 import { router } from '../src/commands/index.ts'
+import { AtlError } from '../src/lib/errors.ts'
+import { assertImplemented } from '../src/router.ts'
 import { makeSandbox, runCli, type Sandbox } from './helpers/cli.ts'
 
 describe('routing', () => {
@@ -80,11 +82,27 @@ describe('routing', () => {
     assert.match(result.stderr, /expects a value/)
   })
 
-  it('exits with 1 on a planned command, announcing its phase', async () => {
-    const result = await runCli(['issue', 'mv', 'x', 'y'], { sandbox })
-    assert.equal(result.code, 1)
-    assert.match(result.stderr, /not implemented yet/)
-    assert.match(result.stderr, /phase 2/)
+  it('every declared command is implemented', () => {
+    // A command in the help that answers "not implemented yet" is a promise the project
+    // has to keep. Two were declared and then cancelled as duplicates of `issue edit`,
+    // and stayed in the help for a week.
+    const planned = router.commands.filter((c) => !c.run).map((c) => c.path.join(' '))
+    assert.deepEqual(planned, [])
+  })
+
+  it('refuses a command declared without an implementation, naming its phase', () => {
+    // The guard still has to work: `assertImplemented` is what stands between a
+    // half-declared command and a confusing crash.
+    assert.throws(
+      () => assertImplemented({ path: ['issue', 'ghost'], summary: '', phase: 7 }),
+      (error: unknown) => {
+        assert.ok(error instanceof AtlError)
+        assert.equal(error.exitCode, 1)
+        assert.match(error.message, /not implemented yet/)
+        assert.match(error.message, /phase 7/)
+        return true
+      },
+    )
   })
 
   after(() => {})

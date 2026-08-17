@@ -113,6 +113,7 @@ atl issue start <ref>                    # In progress + branch name + link
 atl issue ac check <ref> 1 2             # tick acceptance criteria
 atl issue block <ref> --by <ref2>        # dependencies, written on both sides
 atl issue delete <ref> [<ref>…]          # to Anytype's bin, asks before it acts
+atl project delete <project>             # asks what becomes of its issues
 atl gain                                 # tokens absorbed by atl instead of your context
 atl ls --json --fields ref,state,title   # JSON output trimmed to the useful fields
 ```

@@ -138,7 +138,15 @@ atl project list
 atl project view <project>
 atl project new "name" --repo <url>
 atl project stats <project> [--dry-run] # recomputes and writes progress
+atl project delete <project> [--with-issues] --yes
 ```
+
+Deleting a project asks what becomes of its issues, because Anytype does not: archiving a project
+there leaves every issue behind with **no project**, invisible outside `--all-projects`. Off a
+terminal the menu is replaced by an error naming both commands, since `--yes` alone does not say
+which outcome it picks. Issues go first and the project last, so a failure midway leaves a project
+holding fewer issues rather than issues holding no project. Same rule as `issue delete`: **propose
+the command, never run it with `--yes` unprompted**.
 
 ### Bootstrapping
 
