@@ -48,8 +48,10 @@ sixths. Measured on 221 issues: `--json` alone 20,838 tokens, the table's five c
 `--fields ref,state` 3,503. The `id` field alone weighs 31 % — useless, since the CLI resolves
 everything by `ref`.
 
-**Always restrict.** `--project`, `--state`, `--label` cut the output by a factor of 3. Without a
-filter, `atl ls` lists the entire space, unrelated projects included.
+**Always restrict.** `--state`, `--priority`, `--label` and `--project` all filter `atl ls`, and
+combine as AND — there is no need to list everything and sift afterwards, nor to fall back on
+`project view` to see one state. They cut the output by a factor of 3. Without a filter, `atl ls`
+lists the entire space, unrelated projects included.
 
 **Folder scope does that for you.** If the current folder is linked to a project, `atl ls` and
 `atl issue new` restrict to it automatically and announce it on stderr
@@ -72,7 +74,10 @@ transition, `atl project stats x` prints the computation. An `atl issue view` af
 
 ```sh
 atl ls                                  # active issues (neither done nor canceled)
-atl ls --project X --state started      # filters combine
+atl ls --state review                   # -s, one of backlog todo started review done canceled
+atl ls --priority high                  # -p, one of urgent high medium low none
+atl ls --label Bug                      # -l, any name the dev_label property carries
+atl ls --state todo --priority high     # filters combine as AND
 atl ls --all --sort priority            # includes done and canceled
 atl issue view <ref>                    # detail, acceptance criteria, relations
 atl issue new "title" -p high -l Bug --project X --ac "criterion" --ac "another"

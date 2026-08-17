@@ -33,7 +33,7 @@ const STATE_FLAGS = [
     short: 's',
     kind: 'string',
     placeholder: '<state>',
-    description: 'Filter by state (backlog, todo, started, done, canceled)',
+    description: 'Filter by state (backlog, todo, started, review, done, canceled)',
     repeatable: true,
   },
 ] as const
