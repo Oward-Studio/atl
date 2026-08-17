@@ -53,6 +53,21 @@ describe('routing', () => {
     assert.match(result.stderr, /Unknown command/)
   })
 
+  it('suggests the nearest command rather than only pointing at --help', async () => {
+    const result = await runCli(['isue', 'list'], { sandbox })
+
+    assert.equal(result.code, 2)
+    assert.match(result.stderr, /Did you mean `atl issue list`\?/)
+  })
+
+  it('suggests nothing when the typo resembles no command', async () => {
+    const result = await runCli(['wxyz'], { sandbox })
+
+    assert.equal(result.code, 2)
+    assert.doesNotMatch(result.stderr, /Did you mean/)
+    assert.match(result.stderr, /atl --help/)
+  })
+
   it('exits with 2 on an unknown option', async () => {
     const result = await runCli(['issue', 'list', '--nope'], { sandbox })
     assert.equal(result.code, 2)

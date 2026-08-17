@@ -1,6 +1,7 @@
 import { GLOBAL_FLAGS, parseArgs, type FlagSpec, type ParsedArgs } from './lib/args.ts'
 import { color } from './lib/color.ts'
 import { AtlError, usageError } from './lib/errors.ts'
+import { didYouMean } from './lib/suggest.ts'
 import { out } from './lib/output.ts'
 
 export type CommandContext = {
@@ -11,7 +12,7 @@ export type CommandContext = {
 export type Command = {
   /** Command path: ['issue', 'list'] → `atl issue list`. */
   path: readonly string[]
-  /** Raccourcis de premier niveau : ['ls'] → `atl ls`. */
+  /** First-level shortcuts: ['ls'] → `atl ls`. */
   aliases?: readonly string[]
   summary: string
   /** Positional arguments, for the help: '<ref> <project>'. */
@@ -90,11 +91,26 @@ export function assertImplemented(command: Command): asserts command is Command 
   }
 }
 
-export function unknownCommand(argv: readonly string[]): AtlError {
-  const attempted = takeWhile(argv, (t) => !t.startsWith('-')).slice(0, 2).join(' ')
+export function unknownCommand(router: Router, argv: readonly string[]): AtlError {
+  const words = takeWhile(argv, (t) => !t.startsWith('-'))
+  const attempted = words.slice(0, 2).join(' ')
+
+  // Compared against what a caller actually types: the full paths, the first-level
+  // aliases, and the domain names alone, since `atl isue` is as likely a slip as
+  // `atl isue list`.
+  const names = new Set<string>()
+  for (const command of router.commands) {
+    names.add(key(command.path))
+    if (command.path.length > 1) names.add(command.path[0] as string)
+    for (const alias of command.aliases ?? []) names.add(alias)
+  }
+
+  const suggestion = didYouMean(attempted, names)
   return usageError(
     `Unknown command: \`atl ${attempted}\`.`,
-    'See `atl --help` for the list of commands.',
+    suggestion === undefined
+      ? 'See `atl --help` for the list of commands.'
+      : `${suggestion.replace('`', '`atl ')} See \`atl --help\` for the full list.`,
   )
 }
 

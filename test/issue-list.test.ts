@@ -227,6 +227,41 @@ describe('atl issue list', () => {
     assert.equal(api.hits.get('/v1/spaces') ?? 0, before, 'no network call must happen')
   })
 
+  it('names the near-miss option, which is what a wrong guess needs', async () => {
+    // `--status` for `--state` is the slip that had `atl issue list` reported as
+    // accepting no filters at all.
+    const result = await runCli(['ls', '--status', 'todo'], { sandbox, apiUrl: api.url })
+
+    assert.equal(result.code, 2)
+    assert.match(result.stderr, /Unknown option: --status/)
+    assert.match(result.stderr, /Did you mean `--state`\?/)
+  })
+
+  it('keeps the fallback hint when the option resembles nothing', async () => {
+    const result = await runCli(['ls', '--wxyz'], { sandbox, apiUrl: api.url })
+
+    assert.equal(result.code, 2)
+    assert.doesNotMatch(result.stderr, /Did you mean/)
+    assert.match(result.stderr, /atl … -- --wxyz/)
+  })
+
+  it('spells the suggestion with the dashes the match actually takes', async () => {
+    // `--ss` is nearest to the short alias `s`. Answering `--s` would hand back a flag
+    // that does not exist either, so a pasted suggestion has to be the real one.
+    const result = await runCli(['ls', '--ss'], { sandbox, apiUrl: api.url })
+
+    assert.equal(result.code, 2)
+    assert.match(result.stderr, /Did you mean `-s`\?/)
+    assert.doesNotMatch(result.stderr, /`--s`/)
+  })
+
+  it('suggests nothing for a single-letter option', async () => {
+    const result = await runCli(['ls', '-x'], { sandbox, apiUrl: api.url })
+
+    assert.equal(result.code, 2)
+    assert.doesNotMatch(result.stderr, /Did you mean/)
+  })
+
   it('exits with 2 on an unknown priority', async () => {
     const result = await runCli(['ls', '--priority', 'bogus'], { sandbox, apiUrl: api.url })
     assert.equal(result.code, 2)
