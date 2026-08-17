@@ -82,10 +82,11 @@ atl ls --all --sort priority            # includes done and canceled
 atl issue view <ref>                    # detail, acceptance criteria, relations
 atl issue new "title" -p high -l Bug --project X --ac "criterion" --ac "another"
 atl issue edit <ref> --title "…" --priority low --label Feature --link <url>
-atl issue delete <ref> [<ref>…] --yes  # irreversible, and --yes is required off a terminal
+atl issue delete <ref> [<ref>…] --yes  # to Anytype's bin; --yes required off a terminal
 ```
 
-`issue delete` is the one command that destroys data. It resolves every reference before
+`issue delete` sends issues to Anytype's bin. Nothing brings them back through the API, so from
+here it is final — only the application can restore them. It resolves every reference before
 removing anything, so an unknown one exits 3 having deleted nothing, and it recomputes project
 progress afterwards. **Never pass `--yes` on the user's behalf**: propose the command and let them
 run it, unless they asked for the deletion in those terms.

@@ -161,7 +161,29 @@ measure it were inconclusive, the property never appearing on the object within 
 window. Until it is measured, treat a key rename as unsafe — the keys are internal identifiers,
 invisible in the application, so there is nothing to gain by trying.
 
-### 1.14 Deleting does not free a key
+### 1.14 Deleting an object archives it, and only the application undoes that
+
+`DELETE` on an object does not destroy it. Measured by reading the object back afterwards: it
+survives with `archived: true`, name, properties and body intact, and simply stops appearing in
+searches — which is what makes it look destroyed from the CLI.
+
+Nothing brings it back through the API. Every route was tried on a throwaway issue:
+
+| Attempt | Result |
+|---|---|
+| `DELETE` again | idempotent, still archived |
+| `DELETE …?permanently=true`, `?permanent=true` | **accepted and ignored** |
+| `/bin`, `/trash`, `/bin/empty` | 404, no such endpoint |
+| `update-object` with `archived: false` | **answers 200 and restores nothing** |
+
+Two of those answer success while doing nothing, the same trap as `update-type` refusing to remove
+a property (§1.5). Take an OK from this API as *accepted*, not as *done*, and read back to know.
+
+So there is no permanent deletion and no restore from the CLI: what it can do is send an object to
+the bin, and emptying or recovering it happens in the application. Commands therefore say **moved
+to the bin** rather than *deleted*, which would claim a destruction that does not occur.
+
+### 1.15 Deleting does not free a key
 
 Deletion is logical, not physical, and the key stays reserved for good. Measured on the real space:
 

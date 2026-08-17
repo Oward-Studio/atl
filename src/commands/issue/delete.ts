@@ -11,12 +11,18 @@ import { displayRef, toIssue, type Issue } from '../../model/issue.ts'
 import type { CommandContext } from '../../router.ts'
 
 /**
- * Deleting issues.
+ * Deleting issues — which Anytype implements as **archiving**: the object survives with
+ * `archived: true`, body and properties intact, and stops appearing in searches
+ * (docs/ANYTYPE-LIMITS.md §1.14). The output says so rather than claiming a destruction
+ * that does not happen.
  *
- * The one irreversible command in the CLI, which decides its shape: every reference is
- * resolved **before** anything is deleted, so a typo in the third argument cannot leave
- * the first two gone. Confirmation is required, and refused rather than assumed when
- * there is no terminal to ask in.
+ * No route back through the API, though: `permanently` is ignored, `archived: false`
+ * answers OK and restores nothing, and there is no bin endpoint. Undoing means opening
+ * the application. That is what the confirmation guards — not a loss, a trip out of the
+ * terminal.
+ *
+ * Every reference is resolved **before** anything is removed, so a typo in the third
+ * argument cannot cost the first two.
  */
 export async function issueDelete(ctx: CommandContext): Promise<void> {
   const references = ctx.args.positionals
@@ -75,7 +81,7 @@ async function deleteIssues(
   }
 
   for (const issue of issues) {
-    success(`${color.cyan(displayRef(issue))} — ${issue.title}  ${color.dim('deleted')}`)
+    success(`${color.cyan(displayRef(issue))} — ${issue.title}  ${color.dim('moved to the bin')}`)
   }
   reportProgress(written)
 }
@@ -99,5 +105,5 @@ async function approved(context: Context, issues: readonly Issue[], yes: boolean
     info(`  ${color.cyan(displayRef(issue))} — ${issue.title}`)
   }
   const plural = issues.length > 1 ? `${issues.length} issues` : 'this issue'
-  return confirm(`Delete ${plural}? This cannot be undone.`)
+  return confirm(`Send ${plural} to Anytype's bin?`)
 }
