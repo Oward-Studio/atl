@@ -58,7 +58,7 @@ async function run(argv: readonly string[], invoked: { cmd: string }): Promise<v
       return
     }
 
-    throw unknownCommand(argv)
+    throw unknownCommand(router, argv)
   }
 
   const { command, rest } = match

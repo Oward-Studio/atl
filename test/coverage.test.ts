@@ -36,7 +36,7 @@ describe('command coverage', () => {
     const own = command.path.join('-')
     const name = SHARED_SUITES[own] ?? own
 
-    it(`\`atl ${command.path.join(' ')}\` a sa suite (${name}.test.ts)`, () => {
+    it(`\`atl ${command.path.join(' ')}\` has its suite (${name}.test.ts)`, () => {
       const file = fileURLToPath(new URL(`./${name}.test.ts`, import.meta.url))
       assert.ok(existsSync(file), `missing suite: test/${name}.test.ts`)
     })

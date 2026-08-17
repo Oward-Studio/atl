@@ -191,6 +191,13 @@ space. `ATL_SPACE="<name>"` targets another one for a single command.
 
 ## Conventions to respect
 
+**An error names what to do next; read it before concluding.** A misspelled option or command
+answers with the nearest match — `--status` gets `Did you mean \`--state\`?`, `atl isue list` gets
+`atl issue list`. Exit code 2 means the call was wrong, never that `atl` cannot do the thing:
+`atl <command> --help` lists every option that command accepts, with its accepted values. Reporting
+a capability as absent without having read that help is how a request gets filed for something the
+CLI already does.
+
 **Resolution by name.** States, priorities, labels, projects and refs are given by name or by a
 Linear alias (`todo`, `started`, `review`, `done`, `high`, `none`). Never an Anytype identifier. An
 ambiguous reference exits with code 3 and lists the candidates: narrow it down, do not guess.
@@ -219,7 +226,7 @@ a dynamic table that a custom body would overwrite.
 
 | Code | Meaning | Reaction |
 |---|---|---|
-| 2 | usage | fix the call |
+| 2 | usage | read the suggestion the message carries, or run `atl <command> --help`; never conclude from it that the capability is missing |
 | 3 | not found or ambiguous | narrow the reference, do not guess |
 | 4 | incomplete install: no app key, or space without the dev types | run `atl auth` or `atl init`, per the message; do not work around it |
 | 5 | API unreachable | say to open Anytype, do not retry in a loop |

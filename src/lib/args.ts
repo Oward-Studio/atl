@@ -1,4 +1,5 @@
 import { usageError } from './errors.ts'
+import { closest } from './suggest.ts'
 
 export type FlagKind = 'string' | 'boolean'
 
@@ -70,9 +71,15 @@ export function parseArgs(argv: readonly string[], specs: readonly FlagSpec[]): 
 
     const spec = byName.get(key)
     if (!spec) {
+      // The dashes come from the **candidate**, not from what was typed: `--ss` is
+      // nearest to the short alias `s`, and answering `--s` would hand back a flag that
+      // does not exist either. A suggestion has to be pasteable to be worth printing.
+      const match = closest(key, byName.keys())
       throw usageError(
         `Unknown option: ${token}`,
-        `If it is text rather than an option: atl … -- ${token}`,
+        match === undefined
+          ? `If it is text rather than an option: atl … -- ${token}`
+          : `Did you mean \`${match.length === 1 ? '-' : '--'}${match}\`?`,
       )
     }
 
