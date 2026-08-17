@@ -60,3 +60,8 @@ export function reportProgress(writes: readonly ProgressWrite[]): void {
 export function withState(issues: readonly Issue[], id: string, state: string): Issue[] {
   return issues.map((issue) => (issue.id === id ? { ...issue, state } : issue))
 }
+
+/** Same reasoning for a deletion: the issues that remain once these are gone. */
+export function without(issues: readonly Issue[], ids: ReadonlySet<string>): Issue[] {
+  return issues.filter((issue) => !ids.has(issue.id))
+}

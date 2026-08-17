@@ -82,7 +82,14 @@ atl ls --all --sort priority            # includes done and canceled
 atl issue view <ref>                    # detail, acceptance criteria, relations
 atl issue new "title" -p high -l Bug --project X --ac "criterion" --ac "another"
 atl issue edit <ref> --title "…" --priority low --label Feature --link <url>
+atl issue delete <ref> [<ref>…] --yes  # to Anytype's bin; --yes required off a terminal
 ```
+
+`issue delete` sends issues to Anytype's bin. Nothing brings them back through the API, so from
+here it is final — only the application can restore them. It resolves every reference before
+removing anything, so an unknown one exits 3 having deleted nothing, and it recomputes project
+progress afterwards. **Never pass `--yes` on the user's behalf**: propose the command and let them
+run it, unless they asked for the deletion in those terms.
 
 State transitions, one command per target. Each aligns the issue icon with the state colour,
 **recomputes project progress** and prints the variation, and rewrites nothing if the issue is

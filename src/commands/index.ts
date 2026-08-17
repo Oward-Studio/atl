@@ -7,6 +7,7 @@ import { init } from './init.ts'
 import { space } from './space.ts'
 import { issueAc } from './issue/ac.ts'
 import { issueBlock, issueUnblock } from './issue/block.ts'
+import { issueDelete } from './issue/delete.ts'
 import { issueEdit } from './issue/edit.ts'
 import { issueList } from './issue/list.ts'
 import { issueNew } from './issue/new.ts'
@@ -132,6 +133,14 @@ const commands: Command[] = [
       { name: 'all-projects', kind: 'boolean', description: 'The whole space — overwrites personal icons of other projects' },
     ],
     run: issueIcons,
+  },
+  {
+    path: ['issue', 'delete'],
+    operands: '<ref> [<ref>…]',
+    summary: 'Deletes issues, irreversibly',
+    phase: 1,
+    flags: [{ name: 'yes', kind: 'boolean', description: 'Skips the confirmation (required by a script)' }],
+    run: issueDelete,
   },
   {
     path: ['issue', 'label'],
