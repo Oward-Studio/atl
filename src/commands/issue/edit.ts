@@ -202,12 +202,17 @@ async function labelName(context: Context, input: string): Promise<string> {
   return Object.keys(tags).find((name) => sameName(name, input)) ?? input
 }
 
+/**
+ * An issue whose project was archived keeps the link, and the name no longer resolves.
+ * Printing the raw id there would put a `bafyrei…` in front of a reader for a value the
+ * CLI never asks them to know.
+ */
 async function projectNames(context: Context, issue: Issue): Promise<string> {
   if (issue.projectIds.length === 0) return ''
 
   const projects = await listProjects(context)
   return issue.projectIds
-    .map((id) => projects.find((p) => p.id === id)?.name ?? id)
+    .map((id) => projects.find((p) => p.id === id)?.name ?? '(deleted project)')
     .join(', ')
 }
 

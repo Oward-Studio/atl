@@ -14,6 +14,7 @@ import { issueNew } from './issue/new.ts'
 import { issueStart } from './issue/start.ts'
 import { issueIcons, transition } from './issue/state.ts'
 import { issueView } from './issue/view.ts'
+import { projectDelete } from './project/delete.ts'
 import { projectList } from './project/list.ts'
 import { projectLink, projectUnlink } from './project/link.ts'
 import { projectNew } from './project/new.ts'
@@ -143,18 +144,6 @@ const commands: Command[] = [
     run: issueDelete,
   },
   {
-    path: ['issue', 'label'],
-    operands: 'add|rm <ref> <label>',
-    summary: 'Adds or removes a label',
-    phase: 1,
-  },
-  {
-    path: ['issue', 'mv'],
-    operands: '<ref> <project>',
-    summary: 'Attaches the issue to another project',
-    phase: 2,
-  },
-  {
     path: ['issue', 'block'],
     operands: '<ref> --by|--blocks <ref2>',
     summary: 'Declares a blocked-by / blocks relation',
@@ -196,6 +185,17 @@ const commands: Command[] = [
       { name: 'repo', kind: 'string', placeholder: '<url>', description: 'Repository URL' },
     ],
     run: projectNew,
+  },
+  {
+    path: ['project', 'delete'],
+    operands: '<project>',
+    summary: 'Deletes a project, and decides what becomes of its issues',
+    phase: 3,
+    flags: [
+      { name: 'with-issues', kind: 'boolean', description: 'Takes the project issues along' },
+      { name: 'yes', kind: 'boolean', description: 'Skips the confirmation (required by a script)' },
+    ],
+    run: projectDelete,
   },
   {
     path: ['project', 'link'],
