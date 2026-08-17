@@ -336,7 +336,7 @@ describe('atl issue list', () => {
       })
 
       assert.equal(result.code, 2)
-      assert.match(result.stderr, /Champ inconnu : nawak/)
+      assert.match(result.stderr, /Unknown field: nawak/)
       assert.match(result.stderr, /ref, id, title/)
     })
 

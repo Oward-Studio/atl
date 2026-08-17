@@ -27,6 +27,8 @@ export type Filters = {
  * Pure validation, no network: a typo in a filter must fail immediately, without
  * opening a connection or consuming the cache.
  */
+const fieldList = (): string => `Accepted fields: ${JSON_FIELDS.join(', ')}.`
+
 export function parseFilters(args: ParsedArgs): Filters {
   const sort = flagString(args, 'sort') ?? 'state'
   if (!['updated', 'priority', 'state'].includes(sort)) {
@@ -54,12 +56,12 @@ function parseFields(raw: string | undefined): string[] | undefined {
     .filter(Boolean)
 
   if (asked.length === 0) {
-    throw usageError('`--fields` expects at least one field.', `Champs : ${JSON_FIELDS.join(', ')}.`)
+    throw usageError('`--fields` expects at least one field.', fieldList())
   }
 
   const unknown = asked.filter((f) => !JSON_FIELDS.includes(f as JsonField))
   if (unknown.length > 0) {
-    throw usageError(`Champ inconnu : ${unknown.join(', ')}.`, `Champs : ${JSON_FIELDS.join(', ')}.`)
+    throw usageError(`Unknown field: ${unknown.join(', ')}.`, fieldList())
   }
 
   return asked
