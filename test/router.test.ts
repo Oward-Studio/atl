@@ -82,6 +82,17 @@ describe('routing', () => {
     assert.match(result.stderr, /expects a value/)
   })
 
+  it('reports the version package.json declares, not a copy of it', async () => {
+    // release-please bumps package.json alone. A literal anywhere else would drift at
+    // the first release, and `--version` is what a bug report quotes.
+    const declared = JSON.parse(
+      readFileSync(fileURLToPath(new URL('../package.json', import.meta.url)), 'utf8'),
+    ) as { version: string }
+    const result = await runCli(['--version'], { sandbox })
+
+    assert.equal(result.stdout.trim(), declared.version)
+  })
+
   it('every declared command is implemented', () => {
     // A command in the help that answers "not implemented yet" is a promise the project
     // has to keep. Two were declared and then cancelled as duplicates of `issue edit`,

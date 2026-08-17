@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+
 import { router } from './commands/index.ts'
 import { flagBool, parseArgs, GLOBAL_FLAGS } from './lib/args.ts'
 import { color, setColorEnabled } from './lib/color.ts'
@@ -14,7 +16,15 @@ import {
   unknownCommand,
 } from './router.ts'
 
-const VERSION = '0.1.0'
+/**
+ * Read rather than copied: release-please bumps `package.json` and nothing else, so a
+ * literal here would start lying at the first release.
+ */
+const VERSION = (
+  JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as {
+    version: string
+  }
+).version
 
 export async function main(argv: readonly string[]): Promise<void> {
   const startedAt = Date.now()

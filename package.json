@@ -1,6 +1,6 @@
 {
   "name": "atl",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "license": "MIT",
   "private": true,
   "description": "Anytype as Linear — CLI for dev issues & projects, backed by Anytype",
