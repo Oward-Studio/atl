@@ -73,8 +73,10 @@ async function deleteIssues(
   )
 
   if (context.json) {
+    // `archived`, not `deleted`: a script reading this should not believe the object
+    // is gone from the space.
     json({
-      deleted: issues.map((issue) => ({ ref: displayRef(issue), title: issue.title })),
+      archived: issues.map((issue) => ({ ref: displayRef(issue), title: issue.title })),
       progress: written,
     })
     return
@@ -83,6 +85,9 @@ async function deleteIssues(
   for (const issue of issues) {
     success(`${color.cyan(displayRef(issue))} — ${issue.title}  ${color.dim('moved to the bin')}`)
   }
+  // Said once, because the CLI cannot do it: removing an object for good, or putting it
+  // back, happens in the application (docs/ANYTYPE-LIMITS.md §1.14).
+  info(color.dim(`  Archived, not erased — emptying the bin is done in Anytype.`))
   reportProgress(written)
 }
 

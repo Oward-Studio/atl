@@ -29,8 +29,8 @@ describe('atl issue delete', () => {
     })
 
     assert.equal(result.code, 0, result.stderr)
-    const data = parseJson(result) as { deleted: { ref: string; title: string }[] }
-    assert.deepEqual(data.deleted, [{ ref: 'atl-label-sort', title: 'Fix the label sorting' }])
+    const data = parseJson(result) as { archived: { ref: string; title: string }[] }
+    assert.deepEqual(data.archived, [{ ref: 'atl-label-sort', title: 'Fix the label sorting' }])
     assert.ok(!remaining().includes('tk-1'))
   })
 
@@ -120,5 +120,6 @@ describe('atl issue delete', () => {
     assert.equal(result.stdout, '', 'a deletion writes nothing to stdout')
     assert.match(result.stderr, /atl-label-sort/)
     assert.match(result.stderr, /Fix the label sorting/)
+    assert.match(result.stderr, /emptying the bin is done in Anytype/)
   })
 })
