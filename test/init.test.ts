@@ -106,7 +106,7 @@ describe('atl init', () => {
       assert.equal(data.properties.length, allProperties().length)
       // Named rather than counted: what matters is that each step the API cannot perform
       // is reported, and a count breaks on the next one instead of on a missing one.
-      for (const subject of [/template/, /`tag` property/, /Linked Projects/]) {
+      for (const subject of [/template/, /`tag` property/]) {
         assert.ok(
           data.manualSteps.some((step) => subject.test(step)),
           `no manual step mentions ${subject.source}`,

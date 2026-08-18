@@ -158,9 +158,8 @@ atl init                                # creates both dev types and their prope
 For a fresh space without the `dev_issue` / `dev_project` types. Without bootstrapping, `issue new`,
 `project new` and `ls` **exit with 4** and name `atl init` — otherwise the API would return an opaque
 `HTTP 500`, or zero results as though the space were empty. Idempotent, and it **does not migrate**:
-an existing type is left alone. Three steps stay manual, and it lists them — creating each type's
-template, removing the `tag` property Anytype attaches by default, and limiting `Linked Projects` to
-the Dev project type, which the API cannot express.
+an existing type is left alone. Two steps stay manual, and it lists them — creating each type's
+template, and removing the `tag` property Anytype attaches by default.
 
 ### Maintenance
 

@@ -104,12 +104,10 @@ atl init --dry-run   # report what would be created
 atl init             # create both types, their properties and their tags
 ```
 
-It is idempotent, and **not a migration**: an existing type is left untouched. Three steps remain
+It is idempotent, and **not a migration**: an existing type is left untouched. Two steps remain
 manual because the API cannot perform them — creating each type's default template (it can neither
-read nor write a block), removing the `tag` property that Anytype attaches to every new type, and
-limiting `Linked Projects` to the Dev project type (an `objects` property accepts any object, and the
-API neither reads nor writes that restriction). The command lists them rather than leaving them
-silent.
+read nor write a block), and removing the `tag` property that Anytype attaches to every new type.
+The command lists them rather than leaving them silent.
 
 Without bootstrapping, `issue new`, `project new` and `ls` exit with code 4 and name `atl init`.
 
