@@ -1,0 +1,28 @@
+name: release-please
+
+# Versions come from the commit messages, which the project already writes as
+# Conventional Commits and CONTRIBUTING already requires. release-please reads them,
+# keeps a release pull request holding the version bump and the changelog, and tags on
+# merge. Choosing a number by hand is what this removes; choosing *when* to release is
+# still a merge you perform.
+#
+# Note that `main` is squash-merged, so what lands here is the **pull request title**.
+# `pr-title.yml` is what keeps that title conventional — without it a mistyped title
+# would silently skip a bump.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      # `node` rather than `simple`: it is what bumps the version in package.json, which
+      # is where `atl --version` reads it from.
+      - uses: googleapis/release-please-action@v4
+        with:
+          release-type: node

@@ -76,9 +76,22 @@ patch. An entry that turns out to be wrong is worth more attention than a bug: t
 code shaped around each of these limits, and a limit that does not hold is a whole branch of that
 code with no reason to exist.
 
-## Commits
+## Commits, and how a version comes out
 
 One issue, one branch, one pull request. Commit messages say **why**, not what the diff already
 shows; a message explaining a trade-off or naming a measurement is worth more than a tidy subject
-line. No emoji, no prefix beyond the conventional `feat:` / `fix:` / `docs:` / `test:` /
-`refactor:` / `chore:`.
+line. No emoji, and the prefix is a Conventional Commit type: `feat`, `fix`, `docs`, `test`,
+`refactor`, `chore`, `ci`, `perf`, `build`, `style`, `revert`.
+
+**The pull request title is the one that counts.** `main` is squash-merged, so the title becomes
+the commit message on `main` — and that is what release-please reads to work out the next version.
+CI rejects a title that is not a Conventional Commit, because a mistyped one would not fail
+anything, it would quietly skip a release.
+
+`feat` produces a minor version and `fix` a patch; `feat!` or a `BREAKING CHANGE` footer produces a
+major. Every other type ships without a new version, which is the intended outcome for
+documentation or a test.
+
+Nobody chooses the number. release-please keeps a pull request holding the bump and the changelog,
+and merging it tags the release. Deciding *when* to release is that merge; deciding *what* the
+version is belongs to the commits.

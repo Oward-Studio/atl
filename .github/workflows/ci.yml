@@ -31,6 +31,28 @@ jobs:
       - run: npm run typecheck
       - run: npm test
 
+  # `main` is squash-merged, so the pull request title becomes the commit message that
+  # release-please reads to compute the next version. A title that is not a Conventional
+  # Commit therefore skips a release in silence — which is why this is enforced here and
+  # not in a local git hook: a hook never sees a title, and an outside contributor never
+  # installs one.
+  pr-title:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: The title must be a Conventional Commit
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          if printf '%s' "$TITLE" | grep -qE '^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\([a-z0-9 ._-]+\))?!?: .+'; then
+            echo "ok: $TITLE"
+          else
+            echo "::error::\"$TITLE\" is not a Conventional Commit."
+            echo "Expected: <type>: <summary> — feat, fix, docs, test, refactor, chore, ci…"
+            echo "feat and fix are what release a new version; the others do not."
+            exit 1
+          fi
+
   # The single check branch protection requires, and the reason it exists: job names
   # derived from a matrix (`test (20.11)`) change whenever the matrix does, and a
   # required check that stops being reported leaves every pull request waiting for
@@ -46,7 +68,7 @@ jobs:
     # `always()` is load-bearing. Without it this job is *skipped* when `test` fails,
     # and GitHub counts a skipped required check as a passing one.
     if: always()
-    needs: [test]
+    needs: [test, pr-title]
     runs-on: ubuntu-latest
     steps:
       - name: Every required job must have succeeded
@@ -55,3 +77,10 @@ jobs:
             echo "test → ${{ needs.test.result }}"
             exit 1
           fi
+          # `pr-title` is skipped on a push to main, where there is no title to check.
+          # Spelled out rather than relied upon: GitHub counts a skipped job as passing,
+          # and that default is exactly what this gate exists to not depend on.
+          case "${{ needs.pr-title.result }}" in
+            success|skipped) ;;
+            *) echo "pr-title → ${{ needs.pr-title.result }}"; exit 1 ;;
+          esac
