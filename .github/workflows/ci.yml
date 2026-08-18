@@ -60,13 +60,23 @@ jobs:
       # into a sentence someone had to write, and the footer is what release-please
       # actually reads — from a commit message, since squashing takes the body from the
       # branch commits rather than from this description.
+      # Anchored on the type prefix rather than searching the whole title: a title that
+      # merely mentions the syntax — `docs: explain why feat!: needs a footer` — is not a
+      # breaking change, and gating it would demand a footer for a break that does not
+      # exist.
       - name: A breaking change has to say what breaks
-        if: contains(github.event.pull_request.title, '!:')
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
+          TITLE: ${{ github.event.pull_request.title }}
         run: |
-          if gh api "repos/${{ github.repository }}/pulls/${PR}/commits" \
+          if ! printf '%s' "$TITLE" | grep -qE '^[a-z]+(\([a-z0-9 ._-]+\))?!: '; then
+            echo "not a breaking change, nothing to require"
+            exit 0
+          fi
+          # `--paginate`: the default page holds 30 commits, and a footer written in the
+          # thirty-first would otherwise be invisible.
+          if gh api --paginate "repos/${{ github.repository }}/pulls/${PR}/commits" \
                --jq '.[].commit.message' | grep -qE '^BREAKING CHANGE: .+'; then
             echo "ok: the break is described in a commit message"
           else

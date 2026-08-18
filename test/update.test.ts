@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { execFile } from 'node:child_process'
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
@@ -28,12 +28,29 @@ async function installation(): Promise<{ clone: string; remote: string }> {
     await git('git', ['-C', dir, 'config', 'user.name', 'Probe'])
   }
   await config(work)
-  await writeFile(join(work, 'package.json'), JSON.stringify({ name: 'atl', version: '1.0.0' }))
+  await writeFile(
+    join(work, 'package.json'),
+    JSON.stringify({ name: 'atl', version: '1.0.0', dependencies: {} }),
+  )
+  // A lockfile npm will accept, and the marker it writes once dependencies are in place.
+  // `npm ci` refuses without the first; `needsInstall` reinstalls without the second.
+  await writeFile(
+    join(work, 'package-lock.json'),
+    JSON.stringify({
+      name: 'atl',
+      version: '1.0.0',
+      lockfileVersion: 3,
+      requires: true,
+      packages: { '': { name: 'atl', version: '1.0.0' } },
+    }),
+  )
   await git('git', ['-C', work, 'add', '.'])
   await git('git', ['-C', work, 'commit', '-qm', 'feat: first'])
   await git('git', ['-C', work, 'push', '-q', 'origin', 'main'])
   await git('git', ['clone', '-q', remote, clone])
   await config(clone)
+  await mkdir(join(clone, 'node_modules'), { recursive: true })
+  await writeFile(join(clone, 'node_modules', '.package-lock.json'), '{}')
 
   return { clone, remote: work }
 }
@@ -41,9 +58,23 @@ async function installation(): Promise<{ clone: string; remote: string }> {
 /** Publishes a commit the clone has not seen, optionally bumping the version. */
 async function publish(work: string, version?: string, alsoTouchLock = false): Promise<void> {
   if (version) {
-    await writeFile(join(work, 'package.json'), JSON.stringify({ name: 'atl', version }))
+    await writeFile(
+      join(work, 'package.json'),
+      JSON.stringify({ name: 'atl', version, dependencies: {} }),
+    )
   }
-  if (alsoTouchLock) await writeFile(join(work, 'package-lock.json'), '{}')
+  if (alsoTouchLock) {
+    await writeFile(
+      join(work, 'package-lock.json'),
+      JSON.stringify({
+        name: 'atl',
+        version: version ?? '1.0.0',
+        lockfileVersion: 3,
+        requires: true,
+        packages: { '': { name: 'atl', version: version ?? '1.0.0' } },
+      }),
+    )
+  }
   await writeFile(join(work, 'README.md'), `updated ${version ?? ''}`)
   await git('git', ['-C', work, 'add', '.'])
   await git('git', ['-C', work, 'commit', '-qm', 'feat: more'])
@@ -89,12 +120,43 @@ describe('atl update', () => {
     assert.deepEqual([data.updated, data.reinstalled], [false, false])
   })
 
-  it('reinstalls only when the lockfile moved', async () => {
+  it('leaves the dependencies alone when the lockfile did not move', async () => {
     // Reinstalling on every update would spend a network round trip to learn that
     // nothing changed.
     await publish(remote, '1.1.0')
-    const withoutLock = parseJson(await update(['--json'])) as { reinstalled: boolean }
-    assert.equal(withoutLock.reinstalled, false)
+    const data = parseJson(await update(['--json'])) as { reinstalled: boolean }
+    assert.equal(data.reinstalled, false)
+  })
+
+  it('reinstalls when the lockfile moved', async () => {
+    await publish(remote, '1.1.0', true)
+    const result = await update(['--json'])
+
+    assert.equal(result.code, 0, result.stderr)
+    const data = parseJson(result) as { reinstalled: boolean }
+    assert.equal(data.reinstalled, true)
+  })
+
+  it('retries the install when npm left no record of one', async () => {
+    // `npm ci` empties node_modules before fetching, so an interrupted install leaves a
+    // clone on new code with no dependencies. Deciding from the pull range alone, the
+    // next run would report "already up to date" and never retry.
+    await rm(join(clone, 'node_modules'), { recursive: true, force: true })
+    const data = parseJson(await update(['--json'])) as { pulled: number; reinstalled: boolean }
+
+    assert.equal(data.pulled, 0, 'nothing to pull, yet')
+    assert.equal(data.reinstalled, true, 'the missing install is retried')
+  })
+
+  it('says a root is not a clone rather than leaking a filesystem error', async () => {
+    // Two wrong answers were possible here: the fast-forward hint attached to any git
+    // failure, and a raw `ENOENT … /package.json` from reading the version first.
+    const result = await runCli(['update'], { sandbox, env: { ATL_INSTALL_ROOT: tmpdir() } })
+
+    assert.notEqual(result.code, 0)
+    assert.match(result.stderr, /nothing to update/)
+    assert.doesNotMatch(result.stderr, /stops a fast-forward/)
+    assert.doesNotMatch(result.stderr, /ENOENT/)
   })
 
   it('refuses to invent a merge, and says what blocks the fast-forward', async () => {

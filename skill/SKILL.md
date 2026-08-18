@@ -178,9 +178,9 @@ atl update                              # pulls and reinstalls this installation
 ```
 
 `atl update` is the one command that runs Git and npm, on its own clone. It fast-forwards or
-refuses, never merges, and reinstalls only when the lockfile moved. The global binary reads the
-clone live, so a pull is enough — nothing has to be re-linked. **Propose it rather than running it**:
-it writes to the owner's working tree.
+refuses, never merges, and runs `npm ci` only when the lockfile moved or a previous install left no
+trace. The global binary reads the clone live, so a pull is enough — nothing has to be re-linked.
+**Propose it rather than running it**: it writes to the owner's working tree.
 
 `atl gain` keeps the measured apart from the estimated: absorbed and rendered are counted per
 invocation, the MCP equivalent is calibrated (one object ≈ 1,964 tokens, measured) and capped both by
