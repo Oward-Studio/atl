@@ -1,10 +1,13 @@
 import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import { router } from './commands/index.ts'
 import { flagBool, parseArgs, GLOBAL_FLAGS } from './lib/args.ts'
 import { color, setColorEnabled } from './lib/color.ts'
 import { AtlError, ExitCode } from './lib/errors.ts'
 import { fail, info, out } from './lib/output.ts'
+import { notifyIfBehind } from './lib/update-check.ts'
 import { record } from './lib/usage.ts'
 import {
   assertImplemented,
@@ -18,35 +21,55 @@ import {
 
 /**
  * Read rather than copied: release-please bumps `package.json` and nothing else, so a
- * literal here would start lying at the first release.
+ * literal here would start lying at the first release. Read from the installation root so
+ * `--version` and the update notice can never disagree about which install they describe.
  */
-const VERSION = (
-  JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as {
-    version: string
+const version = (): string => {
+  // Falls back to the package this file ships in: `--version` answering nothing, or
+  // failing outright, is worse than answering the source's number when the install root
+  // it was pointed at holds no package.
+  for (const candidate of [resolve(installRoot(), 'package.json'), fileURLToPath(new URL('../package.json', import.meta.url))]) {
+    try {
+      return (JSON.parse(readFileSync(candidate, 'utf8')) as { version: string }).version
+    } catch {
+      continue
+    }
   }
-).version
+  return '0.0.0'
+}
 
 export async function main(argv: readonly string[]): Promise<void> {
   const startedAt = Date.now()
   // The name is captured as soon as routing resolves: a command failing after it
   // queried the API did absorb volume, and must be counted.
-  const invoked = { cmd: 'unknown' }
+  const invoked: { cmd: string; finishedAt?: number } = { cmd: 'unknown' }
 
   try {
     await run(argv, invoked)
   } catch (error) {
     process.exitCode = report(error)
   } finally {
-    record(invoked.cmd, startedAt, Date.now())
+    // The command's own duration, not the courtesy that follows it: a once-a-day lookup
+    // of up to 1.5 s billed to whichever invocation happened to pay for it would make
+    // `atl gain` report a figure about the network rather than about the command.
+    record(invoked.cmd, startedAt, invoked.finishedAt ?? Date.now())
   }
 }
 
-async function run(argv: readonly string[], invoked: { cmd: string }): Promise<void> {
+async function run(
+  argv: readonly string[],
+  invoked: { cmd: string; finishedAt?: number },
+): Promise<void> {
   // Colours are decided before any output, errors included.
   if (argv.includes('--no-color')) setColorEnabled(false)
 
   if (argv.includes('--version') || argv.includes('-v')) {
-    out(VERSION)
+    out(version())
+    invoked.finishedAt = Date.now()
+    // Checking a version is the moment someone most wants to know theirs is behind, so
+    // this flag is worth the one deadline-bounded call a day that the rest of the CLI
+    // pays for too.
+    await notifyIfBehind(installRoot())
     return
   }
 
@@ -82,6 +105,20 @@ async function run(argv: readonly string[], invoked: { cmd: string }): Promise<v
 
   assertImplemented(command)
   await command.run({ args, json: flagBool(args, 'json') })
+
+  // After the command, so what was asked for is read first and a courtesy never delays
+  // it. Two domains are exempt: being told an update exists while running the update is
+  // noise, and `cache clear` would find the file it just deleted written back — the
+  // notice persists its own lookup.
+  invoked.finishedAt = Date.now()
+  if (!['update', 'cache'].includes(command.path[0] as string)) {
+    await notifyIfBehind(installRoot())
+  }
+}
+
+/** The package root: this file sits in `src/`. */
+function installRoot(): string {
+  return process.env['ATL_INSTALL_ROOT'] ?? fileURLToPath(new URL('..', import.meta.url))
 }
 
 function report(error: unknown): ExitCode {

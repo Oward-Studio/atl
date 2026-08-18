@@ -70,6 +70,13 @@ export function runCli(
   delete env['ATL_APP_KEY']
   delete env['ATL_SPACE']
   delete env['ATL_API_URL']
+  // The update notice reaches a host other than Anytype, so its switches are neutralised
+  // too: exported by a developer, one direction makes every suite call api.github.com and
+  // the other makes the notice's own tests fail.
+  delete env['ATL_UPDATE_CHECK']
+  delete env['ATL_NO_UPDATE_CHECK']
+  delete env['ATL_UPDATE_ORIGIN']
+  delete env['ATL_INSTALL_ROOT']
 
   env['XDG_CONFIG_HOME'] = options.sandbox.configHome
   env['XDG_CACHE_HOME'] = options.sandbox.cacheHome

@@ -1,3 +1,4 @@
+import { flag } from './env.ts'
 import { appendFileSync, mkdirSync, readFileSync } from 'node:fs'
 
 import { usageDir, usageFile } from './paths.ts'
@@ -121,8 +122,7 @@ export function resetMeter(): void {
 
 /** True when the user disabled recording. */
 export function disabled(): boolean {
-  const value = process.env['ATL_NO_USAGE']
-  return value !== undefined && value !== '' && value !== '0'
+  return flag('ATL_NO_USAGE')
 }
 
 /**

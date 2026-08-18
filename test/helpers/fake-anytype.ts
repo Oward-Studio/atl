@@ -353,6 +353,17 @@ async function handle(
   }
 
   // Pairing endpoints: no app key required.
+  // The releases endpoint the update notice reads, so no test reaches api.github.com.
+  if (path.endsWith('/releases/latest')) {
+    hits.set('/releases/latest', (hits.get('/releases/latest') ?? 0) + 1)
+    if (path.includes('/nobody/nothing/')) {
+      send(404, { message: 'Not Found' })
+      return
+    }
+    send(200, { tag_name: 'v1.1.0' })
+    return
+  }
+
   if (path === '/v1/auth/challenges' && req.method === 'POST') {
     send(200, { challenge_id: 'challenge-123' })
     return

@@ -19,6 +19,18 @@ export function info(message: string): void {
   write(process.stderr, `${message}\n`)
 }
 
+/**
+ * Written to stderr but **not counted**, unlike everything else here.
+ *
+ * `atl gain` measures what a command absorbed against what reached the context, and the
+ * update notice is not part of the command's work: counting it would make the invocation
+ * that happened to carry it look less efficient than it was. It also only ever appears on
+ * a terminal, where no agent context is being filled.
+ */
+export function notice(message: string): void {
+  process.stderr.write(`${message}\n`)
+}
+
 export function success(message: string): void {
   write(process.stderr, `${color.green('✓')} ${message}\n`)
 }
