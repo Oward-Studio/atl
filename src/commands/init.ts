@@ -98,7 +98,9 @@ async function run(context: Context, dryRun: boolean): Promise<void> {
 
   await apply(context, plan)
   success('Space bootstrapped.')
-  warn('Two things remain to be done by hand, in the application:')
+  // Counted rather than spelled out: "Two things" was written when there were two, and
+  // said the wrong number the moment a third was found.
+  warn(`${MANUAL_STEPS.length} things remain to be done by hand, in the application:`)
   for (const step of MANUAL_STEPS) info(color.dim(`    ${step}`))
 }
 
@@ -109,6 +111,7 @@ async function run(context: Context, dryRun: boolean): Promise<void> {
 const MANUAL_STEPS = [
   'create the default template of each type — the API can neither read nor write a block (docs/ANYTYPE-LIMITS.md §1.4)',
   'remove the `tag` property from both types — Anytype attaches it by default, and update-type cannot remove it',
+  'limit `Linked Projects` to the Dev project type — an `objects` property accepts any object, and the API neither reads nor writes that restriction (docs/ANYTYPE-LIMITS.md §1.16)',
 ]
 
 /**

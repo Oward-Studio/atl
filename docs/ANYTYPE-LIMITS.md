@@ -183,6 +183,31 @@ So there is no permanent deletion and no restore from the CLI: what it can do is
 the bin, and emptying or recovering it happens in the application. Commands therefore say **moved
 to the bin** rather than *deleted*, which would claim a destruction that does not occur.
 
+### 1.16 An `objects` property accepts any object, and the API cannot narrow it
+
+`linked_projects` holds the project an issue belongs to, and nothing in the schema says it must be a
+project. Read back, an `objects` property carries four fields and no more:
+
+```json
+{ "object": "property", "id": "bafyrei…", "key": "linked_projects", "name": "Linked Projects",
+  "format": "objects" }
+```
+
+The application does offer the restriction — *limit object types* on a relation — but the API neither
+reports it nor accepts it. Five plausible field names were tried on a throwaway property, and every
+one was **accepted and ignored**, leaving the property unchanged on read: `object_types`,
+`objectTypes`, `types`, `limit_object_types`, `relation_format_object_types`. Another instance of a
+200 that means *received*, not *done* (§1.5, §1.14).
+
+Nor is the gap theoretical. Writing an **issue** id into another issue's `linked_projects` through the
+API succeeds without complaint, and the CLI then shows `?` where a project name belongs — the same
+symptom as an issue whose project has been archived.
+
+So the guarantee lives in the CLI rather than in the schema: `--project` resolves among projects and
+exits 3 otherwise, which is what keeps a wrong type out. Anything writing directly — the
+application, a script, an MCP call — bypasses it. `atl init` reports the restriction as a manual step
+for the same reason it reports the template: it cannot perform it.
+
 ### 1.15 Deleting does not free a key
 
 Deletion is logical, not physical, and the key stays reserved for good. Measured on the real space:
