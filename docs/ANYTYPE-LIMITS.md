@@ -198,8 +198,13 @@ one was **accepted and ignored**, leaving the property unchanged on read: `objec
 `objectTypes`, `types`, `limit_object_types`, `relation_format_object_types`. Another 200 that means
 *received*, not *done* (§1.5, §1.14).
 
-Openness is the intended shape rather than a defect: `blocked_by` and `blocking` link issues, and a
-space owner may legitimately want a note or a document among them. `linked_projects` is narrower in
+`linked_projects` is worth a separate warning: it is **native**, one of the 34 properties a brand-new
+space already carries, and it is **declared by Anytype's own `task` type**. Reusing it means sharing
+a field with Anytype's tasks rather than owning one, which is why `atl init` creates nine properties
+and not ten. Prefixing atl's own keys is tracked as `atl-prefix-keys`.
+
+Openness is otherwise the intended shape rather than a defect: `blocked_by` and `blocking` link
+issues, and a space owner may legitimately want a note or a document among them. `linked_projects` is narrower in
 practice, so a wrong value shows there first — the same id written into both properties resolves
 under `blocked_by`, whose expected type it happens to match, and prints `?` under
 `linked_projects`, whose type it does not.
