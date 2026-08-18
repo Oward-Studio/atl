@@ -263,7 +263,7 @@ const commands: Command[] = [
   },
   {
     path: ['update'],
-    summary: 'Prints how to update this installation',
+    summary: 'Updates this installation from its Git remote',
     phase: 3,
     run: update,
   },

@@ -174,12 +174,13 @@ atl space "<name>"                      # changes the default space, without re-
 atl auth --status                       # config and connection, writes nothing
 atl cache clear                         # clears the name-resolution cache
 atl gain                                # tokens absorbed by atl instead of the context
-atl update                              # prints how to update this installation
+atl update                              # pulls and reinstalls this installation
 ```
 
-`atl update` prints the version, the install path and the commands, and runs none of them — the CLI
-never invokes Git. Its stdout is the command alone, so it can be piped, which is the caller's
-decision rather than the CLI's.
+`atl update` is the one command that runs Git and npm, on its own clone. It fast-forwards or
+refuses, never merges, and reinstalls only when the lockfile moved. The global binary reads the
+clone live, so a pull is enough — nothing has to be re-linked. **Propose it rather than running it**:
+it writes to the owner's working tree.
 
 `atl gain` keeps the measured apart from the estimated: absorbed and rendered are counted per
 invocation, the MCP equivalent is calibrated (one object ≈ 1,964 tokens, measured) and capped both by

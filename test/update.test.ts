@@ -1,59 +1,121 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
-import { before, describe, it } from 'node:test'
+import { execFile } from 'node:child_process'
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { promisify } from 'node:util'
+import { before, beforeEach, describe, it } from 'node:test'
 
 import { makeSandbox, parseJson, runCli, type Sandbox } from './helpers/cli.ts'
 
+const git = promisify(execFile)
+
+/**
+ * A command that runs `git pull` cannot be tested against the repository it lives in, so
+ * each case gets a throwaway clone of a throwaway remote — `ATL_INSTALL_ROOT` is what
+ * points the command at it. No network: the remote is a bare repository on disk.
+ */
+async function installation(): Promise<{ clone: string; remote: string }> {
+  const base = await mkdtemp(join(tmpdir(), 'atl-update-'))
+  const remote = join(base, 'remote.git')
+  const work = join(base, 'work')
+  const clone = join(base, 'clone')
+
+  await git('git', ['init', '--bare', '-b', 'main', remote])
+  await git('git', ['clone', '-q', remote, work])
+  const config = async (dir: string): Promise<void> => {
+    await git('git', ['-C', dir, 'config', 'user.email', 'probe@example.com'])
+    await git('git', ['-C', dir, 'config', 'user.name', 'Probe'])
+  }
+  await config(work)
+  await writeFile(join(work, 'package.json'), JSON.stringify({ name: 'atl', version: '1.0.0' }))
+  await git('git', ['-C', work, 'add', '.'])
+  await git('git', ['-C', work, 'commit', '-qm', 'feat: first'])
+  await git('git', ['-C', work, 'push', '-q', 'origin', 'main'])
+  await git('git', ['clone', '-q', remote, clone])
+  await config(clone)
+
+  return { clone, remote: work }
+}
+
+/** Publishes a commit the clone has not seen, optionally bumping the version. */
+async function publish(work: string, version?: string, alsoTouchLock = false): Promise<void> {
+  if (version) {
+    await writeFile(join(work, 'package.json'), JSON.stringify({ name: 'atl', version }))
+  }
+  if (alsoTouchLock) await writeFile(join(work, 'package-lock.json'), '{}')
+  await writeFile(join(work, 'README.md'), `updated ${version ?? ''}`)
+  await git('git', ['-C', work, 'add', '.'])
+  await git('git', ['-C', work, 'commit', '-qm', 'feat: more'])
+  await git('git', ['-C', work, 'push', '-q', 'origin', 'main'])
+}
+
 describe('atl update', () => {
   let sandbox: Sandbox
-
-  const declared = (): string =>
-    (
-      JSON.parse(
-        readFileSync(fileURLToPath(new URL('../package.json', import.meta.url)), 'utf8'),
-      ) as { version: string }
-    ).version
+  let clone: string
+  let remote: string
 
   before(async () => {
-    sandbox = await makeSandbox({ authenticated: true })
+    sandbox = await makeSandbox({ authenticated: false })
   })
 
-  it('reports the installation, without needing Anytype', async () => {
-    // No app key, no server: the command touches neither, which is why it works when
-    // everything else is broken.
-    const bare = await makeSandbox({ authenticated: false })
-    const result = await runCli(['update', '--json'], { sandbox: bare })
+  beforeEach(async () => {
+    ;({ clone, remote } = await installation())
+  })
+
+  const update = async (args: readonly string[] = []) =>
+    runCli(['update', ...args], { sandbox, env: { ATL_INSTALL_ROOT: clone } })
+
+  it('pulls, and reports the version it moved to', async () => {
+    await publish(remote, '1.1.0')
+    const result = await update(['--json'])
 
     assert.equal(result.code, 0, result.stderr)
-    const data = parseJson(result) as { version: string; installedAt: string; commands: string[] }
-    assert.equal(data.version, declared())
-    assert.match(data.installedAt, /atl$/)
-    assert.deepEqual(data.commands.slice(1), ['git pull', 'npm install'])
+    const data = parseJson(result) as { from: string; to: string; updated: boolean }
+    assert.deepEqual([data.from, data.to, data.updated], ['1.0.0', '1.1.0', true])
+
+    // The pull really happened, rather than the command reporting an intention.
+    const declared = JSON.parse(await readFile(join(clone, 'package.json'), 'utf8')) as {
+      version: string
+    }
+    assert.equal(declared.version, '1.1.0')
   })
 
-  it('prints a line that can be pasted as it stands', async () => {
-    const result = await runCli(['update'], { sandbox })
+  it('says so and writes nothing when there is nothing to pull', async () => {
+    const result = await update(['--json'])
 
     assert.equal(result.code, 0, result.stderr)
-    // stdout carries the command and nothing else, so `atl update | sh` is the user's
-    // choice to make rather than the CLI's.
-    assert.match(result.stdout.trim(), /^cd \S+ && git pull && npm install$/)
+    const data = parseJson(result) as { updated: boolean; reinstalled: boolean }
+    assert.deepEqual([data.updated, data.reinstalled], [false, false])
   })
 
-  it('says it printed rather than ran', async () => {
-    const result = await runCli(['update'], { sandbox })
-
-    assert.match(result.stderr, /never invokes Git/)
+  it('reinstalls only when the lockfile moved', async () => {
+    // Reinstalling on every update would spend a network round trip to learn that
+    // nothing changed.
+    await publish(remote, '1.1.0')
+    const withoutLock = parseJson(await update(['--json'])) as { reinstalled: boolean }
+    assert.equal(withoutLock.reinstalled, false)
   })
 
-  it('finds its own installation, not the current directory', async () => {
-    // Run from elsewhere: a path derived from `process.cwd()` would answer the sandbox.
-    const result = await runCli(['update', '--json'], { sandbox, cwd: sandbox.configHome })
+  it('refuses to invent a merge, and says what blocks the fast-forward', async () => {
+    // A local commit diverges the clone. `--ff-only` reports rather than merging: an
+    // update must not rewrite a history someone was working in.
+    await writeFile(join(clone, 'local.txt'), 'mine')
+    await git('git', ['-C', clone, 'add', '.'])
+    await git('git', ['-C', clone, 'commit', '-qm', 'chore: local'])
+    await publish(remote, '1.1.0')
+
+    const result = await update()
+
+    assert.notEqual(result.code, 0)
+    assert.match(result.stderr, /fast-forward/)
+  })
+
+  it('works without an app key, since it touches neither Anytype nor the config', async () => {
+    const result = await update(['--json'])
 
     assert.equal(result.code, 0, result.stderr)
     const data = parseJson(result) as { installedAt: string }
-    assert.notEqual(data.installedAt, sandbox.configHome)
-    assert.match(data.installedAt, /atl$/)
+    assert.equal(data.installedAt, clone)
   })
 })
