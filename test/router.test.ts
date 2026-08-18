@@ -129,8 +129,14 @@ describe('routing', () => {
         return statSync(full).isDirectory() ? sources(full) : full.endsWith('.ts') ? [full] : []
       })
 
-    it('runs no external process', () => {
-      for (const file of sources(SRC)) {
+    it('runs no external process, save the one that updates the install', () => {
+      // `atl update` runs Git and npm on its own clone, as `install.sh` does — there is
+      // no caller to supply that context when the thing being updated is the CLI. The
+      // exception is named here rather than the guard dropped, so an accidental
+      // `git checkout` in `issue start` still fails the suite.
+      const allowed = `${SRC}/commands/update.ts`
+
+      for (const file of sources(SRC).filter((f) => f !== allowed)) {
         const code = readFileSync(file, 'utf8')
         for (const forbidden of ['child_process', 'execFile', 'execSync', 'spawn']) {
           assert.doesNotMatch(

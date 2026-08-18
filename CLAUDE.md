@@ -15,9 +15,11 @@ owner's space and are theirs to write in whatever language they like. Keys are n
 
 ## Before changing behaviour
 
-`CONTRIBUTING.md` carries the scope rule and the decisions a change cannot argue with: the CLI
-never runs a Git command, no Anytype identifier is hardcoded, the `tag` property is never written
-to, and states are identified by tag key rather than by display name.
+`CONTRIBUTING.md` carries the scope rule and the decisions a change cannot argue with: no Anytype
+identifier is hardcoded, the `tag` property is never written to, and states are identified by tag key
+rather than by display name. The CLI runs no Git command either — with one exception, `atl update`,
+which updates its own clone and is the only file the structural guard in `test/router.test.ts`
+exempts.
 
 `docs/ANYTYPE-LIMITS.md` records what the Anytype API can and cannot do, measured one case at a
 time, and the features deliberately given up. Read it before concluding that something is

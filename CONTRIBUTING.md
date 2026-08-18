@@ -21,12 +21,16 @@ Ideas belong in [Discussions](https://github.com/Oward-Studio/atl/discussions/ca
 rather than in the issue list, so that the issues stay a list of things that are broken. A
 discussion becomes an issue when it has convinced someone — which may well be you convincing me.
 
-**The CLI never runs a Git command.** It does not inspect the repository, does not check whether
-one exists, opens no pull request. Git context is an input the caller supplies:
+**The CLI never runs a Git command on your repository.** It does not inspect it, does not check
+whether one exists, opens no pull request. Git context is an input the caller supplies:
 
 ```sh
 atl issue done "$(git branch --show-current)"
 ```
+
+The single exception is `atl update`, which runs Git and npm on **its own clone** — there is no
+caller to supply that context when the thing being updated is the CLI. `test/router.test.ts`
+exempts that one file and no other, so an accidental `git checkout` anywhere else fails the suite.
 
 **No Anytype identifier is hardcoded.** Spaces, types, properties, tags and projects resolve by
 name or by key at run time, cached for 24 h. A patch containing a `bafyrei…` literal will be
@@ -95,3 +99,13 @@ documentation or a test.
 Nobody chooses the number. release-please keeps a pull request holding the bump and the changelog,
 and merging it tags the release. Deciding *when* to release is that merge; deciding *what* the
 version is belongs to the commits.
+
+**That release pull request accumulates, so leave it open.** Three features merged before it goes
+out produce one minor version, not three — what makes the numbers run is not how much ships but how
+often that pull request is merged. Treat it as a decision to publish rather than a formality to
+clear, and a busy week reads as one version instead of five.
+
+**A major version is never a keystroke.** `feat!:` alone does not pass CI: it wants a
+`BREAKING CHANGE: <what breaks>` footer in one of the branch's commit messages, which is also where
+release-please reads it from — squashing takes the commit body from the branch, not from the pull
+request description. Renaming a flag or a `--json` key is exactly what the footer is for.

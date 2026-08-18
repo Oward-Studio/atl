@@ -115,6 +115,7 @@ atl issue block <ref> --by <ref2>        # dependencies, written on both sides
 atl issue delete <ref> [<ref>…]          # to Anytype's bin, asks before it acts
 atl project delete <project>             # asks what becomes of its issues
 atl gain                                 # tokens absorbed by atl instead of your context
+atl update                               # pulls and reinstalls this installation
 atl ls --json --fields ref,state,title   # JSON output trimmed to the useful fields
 ```
 

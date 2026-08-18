@@ -39,6 +39,9 @@ jobs:
   pr-title:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - name: The title must be a Conventional Commit
         env:
@@ -50,6 +53,35 @@ jobs:
             echo "::error::\"$TITLE\" is not a Conventional Commit."
             echo "Expected: <type>: <summary> — feat, fix, docs, test, refactor, chore, ci…"
             echo "feat and fix are what release a new version; the others do not."
+            exit 1
+          fi
+
+      # A `!` is one keystroke and costs a major version. Requiring the footer turns it
+      # into a sentence someone had to write, and the footer is what release-please
+      # actually reads — from a commit message, since squashing takes the body from the
+      # branch commits rather than from this description.
+      # Anchored on the type prefix rather than searching the whole title: a title that
+      # merely mentions the syntax — `docs: explain why feat!: needs a footer` — is not a
+      # breaking change, and gating it would demand a footer for a break that does not
+      # exist.
+      - name: A breaking change has to say what breaks
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          if ! printf '%s' "$TITLE" | grep -qE '^[a-z]+(\([a-z0-9 ._-]+\))?!: '; then
+            echo "not a breaking change, nothing to require"
+            exit 0
+          fi
+          # `--paginate`: the default page holds 30 commits, and a footer written in the
+          # thirty-first would otherwise be invisible.
+          if gh api --paginate "repos/${{ github.repository }}/pulls/${PR}/commits" \
+               --jq '.[].commit.message' | grep -qE '^BREAKING CHANGE: .+'; then
+            echo "ok: the break is described in a commit message"
+          else
+            echo "::error::A '!' title needs a 'BREAKING CHANGE: <what breaks>' footer in a commit."
+            echo "Without it release-please would bump the major on a keystroke alone."
             exit 1
           fi
 
