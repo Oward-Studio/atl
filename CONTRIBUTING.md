@@ -95,3 +95,13 @@ documentation or a test.
 Nobody chooses the number. release-please keeps a pull request holding the bump and the changelog,
 and merging it tags the release. Deciding *when* to release is that merge; deciding *what* the
 version is belongs to the commits.
+
+**That release pull request accumulates, so leave it open.** Three features merged before it goes
+out produce one minor version, not three — what makes the numbers run is not how much ships but how
+often that pull request is merged. Treat it as a decision to publish rather than a formality to
+clear, and a busy week reads as one version instead of five.
+
+**A major version is never a keystroke.** `feat!:` alone does not pass CI: it wants a
+`BREAKING CHANGE: <what breaks>` footer in one of the branch's commit messages, which is also where
+release-please reads it from — squashing takes the commit body from the branch, not from the pull
+request description. Renaming a flag or a `--json` key is exactly what the footer is for.

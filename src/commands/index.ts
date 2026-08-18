@@ -4,6 +4,7 @@ import { auth } from './auth.ts'
 import { cacheClear } from './cache.ts'
 import { gain } from './gain.ts'
 import { init } from './init.ts'
+import { update } from './update.ts'
 import { space } from './space.ts'
 import { issueAc } from './issue/ac.ts'
 import { issueBlock, issueUnblock } from './issue/block.ts'
@@ -259,6 +260,12 @@ const commands: Command[] = [
       { name: 'status', kind: 'boolean', description: 'Prints the current config without changing it' },
     ],
     run: auth,
+  },
+  {
+    path: ['update'],
+    summary: 'Prints how to update this installation',
+    phase: 3,
+    run: update,
   },
   {
     path: ['cache', 'clear'],
