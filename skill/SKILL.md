@@ -188,7 +188,7 @@ the absorbed volume and by 50,000 tokens — beyond that the MCP call would not 
 impossible. `ATL_NO_USAGE=1` disables recording, which stays local — no network call.
 
 On a terminal, and at most once a day, `atl` asks GitHub for the latest release tag and says when an
-update exists — after any command, and on `atl --version`. It never fires off a terminal, so an agent makes no request and sees no notice;
+update exists — after any command, and on `atl --version`. It runs only when stderr is a terminal, so an agent makes no request and sees no notice;
 `ATL_NO_UPDATE_CHECK=1` switches it off, `ATL_UPDATE_CHECK=1` forces it on.
 
 `atl ls` **reports** icons misaligned from their state, for free since the information is already in

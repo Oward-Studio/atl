@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { existsSync } from 'node:fs'
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -113,6 +114,62 @@ describe('the update notice', () => {
     assert.match(first.stderr, /is available/)
     assert.match(second.stderr, /is available/, 'the notice repeats')
     assert.equal(api.hits.get('/releases/latest') ?? 0, calls, 'the second run did not call')
+  })
+
+  it('remembers a failed lookup, so it is not retried on every command', async () => {
+    // Reported: only the success path wrote the cache, so a private repository, a
+    // repository with no release yet, or an exhausted rate limit made every command pay a
+    // request up to the deadline — the opposite of what the cache is for.
+    const root = await installation('1.0.0', 'https://github.com/nobody/nothing.git')
+    await run(root, { ATL_UPDATE_CHECK: '1' })
+    const calls = api.hits.get('/releases/latest') ?? 0
+    await run(root, { ATL_UPDATE_CHECK: '1' })
+
+    assert.equal(api.hits.get('/releases/latest') ?? 0, calls, 'the failure was remembered')
+  })
+
+  it('reads `=0` as off, in both directions', async () => {
+    // Bare truthiness made `ATL_UPDATE_CHECK=0` force the check *on*, handing a CI
+    // wrapper the request it was trying to avoid.
+    const root = await installation('1.0.0')
+    const forced = await run(root, { ATL_UPDATE_CHECK: '0' })
+    assert.doesNotMatch(forced.stderr, /is available/)
+    assert.equal(api.hits.get('/releases/latest') ?? 0, 0, 'and no request either')
+  })
+
+  it('ignores a GitHub remote that is not origin', async () => {
+    // A clone whose origin is a mirror would otherwise be told about releases
+    // `atl update` will never pull.
+    const root = await mkdtemp(join(tmpdir(), 'atl-notice-mirror-'))
+    await writeFile(join(root, 'package.json'), JSON.stringify({ name: 'atl', version: '1.0.0' }))
+    await mkdir(join(root, '.git'), { recursive: true })
+    await writeFile(
+      join(root, '.git', 'config'),
+      '[remote "upstream"]\n\turl = https://github.com/someone/else.git\n' +
+        '[remote "origin"]\n\turl = https://gitlab.com/mine/atl.git\n',
+    )
+    const result = await run(root, { ATL_UPDATE_CHECK: '1' })
+
+    assert.equal(result.code, 0, result.stderr)
+    assert.doesNotMatch(result.stderr, /is available/)
+    assert.equal(api.hits.get('/releases/latest') ?? 0, 0)
+  })
+
+  it('leaves the cache cleared when that is what was asked', async () => {
+    // The notice persists its own lookup, and ran after every command — so it wrote back
+    // the file `cache clear` had just removed.
+    const root = await installation('1.0.0')
+    const result = await runCli(['cache', 'clear'], {
+      sandbox,
+      env: { ATL_INSTALL_ROOT: root, ATL_UPDATE_ORIGIN: api.url, ATL_UPDATE_CHECK: '1' },
+    })
+
+    assert.equal(result.code, 0, result.stderr)
+    assert.equal(
+      existsSync(join(sandbox.cacheHome, 'atl')),
+      false,
+      'the cache folder must stay gone',
+    )
   })
 
   it('says nothing, and fails nothing, when the call goes wrong', async () => {

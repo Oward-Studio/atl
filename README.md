@@ -59,10 +59,14 @@ first-class way to read and edit all of it.
 Node ≥ 20.11 and the **Anytype desktop application** running: the CLI talks to its local API on
 `127.0.0.1:31009`.
 
-Nothing leaves the machine, with one exception stated plainly: **once a day, on a terminal, `atl`
-asks GitHub for the latest release tag** so it can say when an update exists. It sends nothing but
-the request, caches the answer for 24 h, never fires off a terminal — so a pipeline, a CI job or an
-agent makes no request at all — and `ATL_NO_UPDATE_CHECK=1` switches it off for good.
+Nothing leaves the machine, with one exception stated plainly: **once a day, `atl` asks GitHub for
+the latest release tag** so it can say when an update exists. It sends nothing but the request and
+caches the answer — including a failed lookup, for an hour, so a private repository or an exhausted
+rate limit cannot turn it into a request per command.
+
+It only runs **when stderr is a terminal**, which is the test for whether anyone is there to read
+the notice: an agent, a CI job or any invocation with stderr redirected makes no request at all.
+`ATL_NO_UPDATE_CHECK=1` switches it off for good, `ATL_UPDATE_CHECK=1` forces it on.
 
 ## Install
 

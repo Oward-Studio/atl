@@ -1,9 +1,10 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, statSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import { cacheFlush, cacheGet, cacheSet } from './cache.ts'
+import { flag } from './env.ts'
 import { color } from './color.ts'
-import { info } from './output.ts'
+import { notice } from './output.ts'
 
 /**
  * Telling the owner a newer version exists, at most once a day.
@@ -21,6 +22,15 @@ import { info } from './output.ts'
 
 const CACHE_KEY = 'update:latest'
 const DAY_MS = 24 * 60 * 60 * 1000
+/**
+ * A lookup that failed is cached too, for an hour rather than a day. Without it a private
+ * repository, a repository with no release yet, or an exhausted anonymous rate limit — 60
+ * requests an hour — would make **every** command pay a request up to the deadline, which
+ * is the opposite of what this cache is for. An hour bounds the damage while still
+ * noticing when the cause goes away.
+ */
+const FAILURE_TTL_MS = 60 * 60 * 1000
+const NOTHING = ''
 const DEADLINE_MS = 1_500
 
 /** Called after a command has run, so its own output comes first. Never throws. */
@@ -32,7 +42,7 @@ export async function notifyIfBehind(root: string): Promise<void> {
     const latest = await latestRelease(root)
     if (!latest || !isNewer(latest, local)) return
 
-    info(color.yellow(`  atl ${latest} is available — you have ${local}. Run \`atl update\`.`))
+    notice(color.yellow(`  atl ${latest} is available — you have ${local}. Run \`atl update\`.`))
   } catch {
     // A notice is a courtesy. Nothing it can fail at is worth surfacing, let alone
     // failing a command that already did its work.
@@ -48,8 +58,8 @@ export async function notifyIfBehind(root: string): Promise<void> {
  * `ATL_UPDATE_CHECK=1`, and refusal wins over insistence.
  */
 function enabled(): boolean {
-  if (process.env['ATL_NO_UPDATE_CHECK']) return false
-  if (process.env['ATL_UPDATE_CHECK']) return true
+  if (flag('ATL_NO_UPDATE_CHECK')) return false
+  if (flag('ATL_UPDATE_CHECK')) return true
   return process.stderr.isTTY === true
 }
 
@@ -64,11 +74,17 @@ function declaredVersion(root: string): string {
  */
 async function latestRelease(root: string): Promise<string | undefined> {
   const cached = await cacheGet<string>(CACHE_KEY)
-  if (cached !== undefined) return cached
+  if (cached !== undefined) return cached === NOTHING ? undefined : cached
 
   const slug = originSlug(root)
-  if (!slug) return undefined
+  if (slug === undefined) return undefined
 
+  const version = await ask(slug)
+  await remember(version ?? NOTHING, version === undefined ? FAILURE_TTL_MS : DAY_MS)
+  return version
+}
+
+async function ask(slug: string): Promise<string | undefined> {
   // Overridable like `ATL_API_URL` is for Anytype, which is also what lets the suite
   // exercise this without reaching a host it does not control.
   const origin = process.env['ATL_UPDATE_ORIGIN'] ?? 'https://api.github.com'
@@ -79,16 +95,16 @@ async function latestRelease(root: string): Promise<string | undefined> {
   if (!response.ok) return undefined
 
   const { tag_name } = (await response.json()) as { tag_name?: string }
-  if (!tag_name) return undefined
+  return tag_name?.replace(/^v/, '')
+}
 
-  const version = tag_name.replace(/^v/, '')
-  await cacheSet(CACHE_KEY, version, DAY_MS)
+async function remember(version: string, ttl: number): Promise<void> {
+  await cacheSet(CACHE_KEY, version, ttl)
   // Flushed here rather than left to the command: `withContext` persists the cache in a
   // `finally` that has already run by the time this notice does, so a write made now
   // would be marked dirty and never reach the disk — and the call would repeat on every
   // single command instead of once a day.
   await cacheFlush()
-  return version
 }
 
 /**
@@ -97,11 +113,41 @@ async function latestRelease(root: string): Promise<string | undefined> {
  * is not running Git.
  */
 function originSlug(root: string): string | undefined {
-  const config = resolve(root, '.git', 'config')
-  if (!existsSync(config)) return undefined
+  const config = gitConfig(root)
+  if (config === undefined) return undefined
 
-  const url = /url\s*=\s*(\S+github\.com\S+)/.exec(readFileSync(config, 'utf8'))?.[1]
-  return url?.replace(/^.*github\.com[:/]/, '').replace(/\.git$/, '')
+  // Anchored on the origin section rather than taking the first GitHub URL in the file: a
+  // clone whose origin is a mirror, with GitHub as a second remote, would otherwise be
+  // told about releases `atl update` will never pull.
+  // `[^[]*` runs to the next section header, `[` being what opens one and never appearing
+  // in a URL. A lookahead for end-of-input would have wanted `\Z`, which JavaScript does
+  // not have — writing it silently matched nothing and switched the feature off.
+  const section = /^\[remote "origin"\][^[]*/m.exec(config)?.[0]
+  const url = /^\s*url\s*=\s*(\S+)/m.exec(section ?? '')?.[1]
+  if (!url?.includes('github.com')) return undefined
+
+  return url.replace(/^.*github\.com[:/]/, '').replace(/\.git$/, '')
+}
+
+/**
+ * `.git` is a directory in a normal clone and a **file** in a linked worktree, pointing at
+ * the real one. Handling both keeps the notice working in a shape the guard would
+ * otherwise silently skip.
+ */
+function gitConfig(root: string): string | undefined {
+  const dotGit = resolve(root, '.git')
+  if (!existsSync(dotGit)) return undefined
+
+  try {
+    if (statSync(dotGit).isFile()) {
+      const pointer = /gitdir:\s*(.+)/.exec(readFileSync(dotGit, 'utf8'))?.[1]?.trim()
+      if (!pointer) return undefined
+      return readFileSync(resolve(root, pointer, 'config'), 'utf8')
+    }
+    return readFileSync(resolve(dotGit, 'config'), 'utf8')
+  } catch {
+    return undefined
+  }
 }
 
 /** Numeric comparison, so 1.10.0 is not read as older than 1.9.0. */
