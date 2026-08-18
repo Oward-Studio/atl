@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.0](https://github.com/Oward-Studio/atl/compare/v1.0.0...v1.1.0) (2026-08-18)
+
+
+### Features
+
+* atl update, and keep the version from running away ([#11](https://github.com/Oward-Studio/atl/issues/11)) ([c4ccd17](https://github.com/Oward-Studio/atl/commit/c4ccd17ee090f1f5d2866003d0a9257847658ae6))
+* say when a newer version exists, once a day ([#13](https://github.com/Oward-Studio/atl/issues/13)) ([cd52b0a](https://github.com/Oward-Studio/atl/commit/cd52b0a1ef2825ab7d9a847cd7ca37c32ab4db86))
+
 ## 1.0.0 (2026-08-18)
 
 
