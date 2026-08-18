@@ -74,6 +74,20 @@ describe('the update notice', () => {
     assert.doesNotThrow(() => JSON.parse(result.stdout), 'stdout stays JSON')
   })
 
+  it('warns on `--version` too, which is where someone goes to check', async () => {
+    const root = await installation('1.0.0')
+    const result = await runCli(['--version'], {
+      sandbox,
+      env: { ATL_INSTALL_ROOT: root, ATL_UPDATE_ORIGIN: api.url, ATL_UPDATE_CHECK: '1' },
+    })
+
+    assert.equal(result.code, 0, result.stderr)
+    // The number it reports is the installation's own, not whichever package.json sits
+    // beside the source — otherwise the flag and the notice would describe two installs.
+    assert.equal(result.stdout.trim(), '1.0.0')
+    assert.match(result.stderr, /1\.1\.0 is available/)
+  })
+
   it('says nothing when the installation is current or ahead', async () => {
     for (const version of ['1.1.0', '2.0.0']) {
       const root = await installation(version)

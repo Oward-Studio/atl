@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { router } from './commands/index.ts'
@@ -20,13 +21,15 @@ import {
 
 /**
  * Read rather than copied: release-please bumps `package.json` and nothing else, so a
- * literal here would start lying at the first release.
+ * literal here would start lying at the first release. Read from the installation root so
+ * `--version` and the update notice can never disagree about which install they describe.
  */
-const VERSION = (
-  JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as {
-    version: string
-  }
-).version
+const version = (): string =>
+  (
+    JSON.parse(readFileSync(resolve(installRoot(), 'package.json'), 'utf8')) as {
+      version: string
+    }
+  ).version
 
 export async function main(argv: readonly string[]): Promise<void> {
   const startedAt = Date.now()
@@ -48,7 +51,11 @@ async function run(argv: readonly string[], invoked: { cmd: string }): Promise<v
   if (argv.includes('--no-color')) setColorEnabled(false)
 
   if (argv.includes('--version') || argv.includes('-v')) {
-    out(VERSION)
+    out(version())
+    // Checking a version is the moment someone most wants to know theirs is behind, so
+    // this flag is worth the one deadline-bounded call a day that the rest of the CLI
+    // pays for too.
+    await notifyIfBehind(installRoot())
     return
   }
 
