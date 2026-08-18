@@ -183,6 +183,36 @@ So there is no permanent deletion and no restore from the CLI: what it can do is
 the bin, and emptying or recovering it happens in the application. Commands therefore say **moved
 to the bin** rather than *deleted*, which would claim a destruction that does not occur.
 
+### 1.16 An `objects` property accepts any object, and the API cannot narrow it
+
+Read back, an `objects` property carries four fields and no more:
+
+```json
+{ "object": "property", "id": "bafyrei…", "key": "linked_projects", "name": "Linked Projects",
+  "format": "objects" }
+```
+
+The application offers a restriction — *limit object types* on a relation — and the API neither
+reports it nor accepts it. Five plausible field names were tried on a throwaway property and every
+one was **accepted and ignored**, leaving the property unchanged on read: `object_types`,
+`objectTypes`, `types`, `limit_object_types`, `relation_format_object_types`. Another 200 that means
+*received*, not *done* (§1.5, §1.14).
+
+`linked_projects` is worth a separate warning: it is **native**, one of the 34 properties a brand-new
+space already carries, and it is **declared by Anytype's own `task` type**. Reusing it means sharing
+a field with Anytype's tasks rather than owning one, which is why `atl init` creates nine properties
+and not ten. Prefixing atl's own keys is tracked as `atl-prefix-keys`.
+
+Openness is otherwise the intended shape rather than a defect: `blocked_by` and `blocking` link
+issues, and a space owner may legitimately want a note or a document among them. `linked_projects` is narrower in
+practice, so a wrong value shows there first — the same id written into both properties resolves
+under `blocked_by`, whose expected type it happens to match, and prints `?` under
+`linked_projects`, whose type it does not.
+
+What keeps the data coherent is therefore the CLI, not the schema: `--project` resolves among
+projects and exits 3 otherwise. Anything writing directly — the application, a script, an MCP call —
+bypasses that, and a link the CLI cannot resolve is displayed rather than repaired.
+
 ### 1.15 Deleting does not free a key
 
 Deletion is logical, not physical, and the key stays reserved for good. Measured on the real space:

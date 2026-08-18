@@ -98,7 +98,9 @@ async function run(context: Context, dryRun: boolean): Promise<void> {
 
   await apply(context, plan)
   success('Space bootstrapped.')
-  warn('Two things remain to be done by hand, in the application:')
+  // Counted rather than spelled out: "Two things" was written when there were two, and
+  // said the wrong number the moment a third was found.
+  warn(`${MANUAL_STEPS.length} things remain to be done by hand, in the application:`)
   for (const step of MANUAL_STEPS) info(color.dim(`    ${step}`))
 }
 

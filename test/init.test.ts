@@ -104,7 +104,14 @@ describe('atl init', () => {
       assert.equal(data.alreadyReady, false)
       assert.deepEqual(data.types.sort(), ['dev_issue', 'dev_project'])
       assert.equal(data.properties.length, allProperties().length)
-      assert.equal(data.manualSteps.length, 2)
+      // Named rather than counted: what matters is that each step the API cannot perform
+      // is reported, and a count breaks on the next one instead of on a missing one.
+      for (const subject of [/template/, /`tag` property/]) {
+        assert.ok(
+          data.manualSteps.some((step) => subject.test(step)),
+          `no manual step mentions ${subject.source}`,
+        )
+      }
     })
 
     it('leaves a space the CLI can work in', async () => {
