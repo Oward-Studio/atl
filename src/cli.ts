@@ -1,10 +1,12 @@
 import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 
 import { router } from './commands/index.ts'
 import { flagBool, parseArgs, GLOBAL_FLAGS } from './lib/args.ts'
 import { color, setColorEnabled } from './lib/color.ts'
 import { AtlError, ExitCode } from './lib/errors.ts'
 import { fail, info, out } from './lib/output.ts'
+import { notifyIfBehind } from './lib/update-check.ts'
 import { record } from './lib/usage.ts'
 import {
   assertImplemented,
@@ -82,6 +84,16 @@ async function run(argv: readonly string[], invoked: { cmd: string }): Promise<v
 
   assertImplemented(command)
   await command.run({ args, json: flagBool(args, 'json') })
+
+  // After the command, so what was asked for is read first and a courtesy never delays
+  // it. `atl update` is exempt: being told an update exists while running the update is
+  // noise.
+  if (command.path[0] !== 'update') await notifyIfBehind(installRoot())
+}
+
+/** The package root: this file sits in `src/`. */
+function installRoot(): string {
+  return process.env['ATL_INSTALL_ROOT'] ?? fileURLToPath(new URL('..', import.meta.url))
 }
 
 function report(error: unknown): ExitCode {

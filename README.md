@@ -57,7 +57,12 @@ first-class way to read and edit all of it.
 ## Requirements
 
 Node ≥ 20.11 and the **Anytype desktop application** running: the CLI talks to its local API on
-`127.0.0.1:31009`. Nothing leaves the machine.
+`127.0.0.1:31009`.
+
+Nothing leaves the machine, with one exception stated plainly: **once a day, on a terminal, `atl`
+asks GitHub for the latest release tag** so it can say when an update exists. It sends nothing but
+the request, caches the answer for 24 h, never fires off a terminal — so a pipeline, a CI job or an
+agent makes no request at all — and `ATL_NO_UPDATE_CHECK=1` switches it off for good.
 
 ## Install
 
