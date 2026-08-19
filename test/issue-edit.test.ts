@@ -83,7 +83,7 @@ describe('atl issue edit', () => {
     const url = 'https://github.com/Oward-Studio/atl/pull/18'
     const result = await edit(['atl-label-sort', '--link', url])
 
-    assert.deepEqual(result.changes, [{ field: 'lien', from: '–', to: url }])
+    assert.deepEqual(result.changes, [{ field: 'link', from: '–', to: url }])
     assert.equal(prop('tk-1', 'github_link')?.['url'], url)
   })
 

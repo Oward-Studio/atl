@@ -164,10 +164,10 @@ async function apply(context: Context, reference: string, wanted: Wanted): Promi
   }
 
   if (wanted.link !== undefined) {
-    if (wanted.link === issue.link) unchanged.push('lien')
+    if (wanted.link === issue.link) unchanged.push('link')
     else {
       properties.push({ key: PROP.link, url: wanted.link })
-      changes.push({ field: 'lien', from: issue.link ?? '–', to: wanted.link })
+      changes.push({ field: 'link', from: issue.link ?? '–', to: wanted.link })
     }
   }
 
