@@ -22,10 +22,13 @@ export async function update(ctx: CommandContext): Promise<void> {
   // raw `ENOENT ... /package.json` from the version read, or as a git exit code with no
   // stated cause.
   assertClone(root)
+  await assertOnDefaultBranch(root)
   const from = declaredVersion(root)
 
   const before = await capture('git', ['rev-parse', 'HEAD'], root)
-  await run('git', ['pull', '--ff-only'], root, ctx.json)
+  // `--quiet` because git's own report says nothing this command does not say better, and
+  // a wall of fetch output made a no-op look like work.
+  await run('git', ['pull', '--ff-only', '--quiet'], root, ctx.json)
   const after = await capture('git', ['rev-parse', 'HEAD'], root)
 
   const pulled = before === after ? 0 : Number(await capture('git', ['rev-list', '--count', `${before}..${after}`], root))
@@ -64,6 +67,61 @@ function installRoot(): string {
   const override = process.env['ATL_INSTALL_ROOT']
   if (override) return override
   return resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
+}
+
+/**
+ * An installation tracks the default branch. On any other, `git pull` updates *that*
+ * branch — whose remote has usually not moved — and reports being up to date while the
+ * default branch has advanced: a success covering a no-op, which is how a clone left on a
+ * working branch stayed a version behind without saying so.
+ *
+ * Refused rather than worked around: pulling the default branch here would merge it into
+ * whatever someone was building, and that is the same thing `--ff-only` exists to prevent.
+ */
+async function assertOnDefaultBranch(root: string): Promise<void> {
+  const current = await capture('git', ['rev-parse', '--abbrev-ref', 'HEAD'], root)
+
+  if (current === 'HEAD') {
+    throw new AtlError(
+      'This clone is on a detached HEAD, not on a branch.',
+      ExitCode.error,
+      'An installation pinned to a tag is not behind by accident. `git checkout <branch>` to follow one again.',
+    )
+  }
+
+  const fallback = await defaultBranch(root)
+  if (fallback === undefined || current === fallback) return
+
+  throw new AtlError(
+    `This clone is on \`${current}\`, not \`${fallback}\`.`,
+    ExitCode.error,
+    `\`git checkout ${fallback}\` to update the installation, or leave it as it is while you work.`,
+  )
+}
+
+/**
+ * Read from the clone, never from the network: `origin/HEAD` is what `git clone` records,
+ * and a repository whose HEAD was never set falls back to whichever of the usual two
+ * names exists. Unknown means silence rather than a guess that blocks the command.
+ */
+async function defaultBranch(root: string): Promise<string | undefined> {
+  try {
+    const ref = await capture('git', ['symbolic-ref', 'refs/remotes/origin/HEAD'], root)
+    const name = ref.replace('refs/remotes/origin/', '').trim()
+    if (name) return name
+  } catch {
+    // Not recorded; fall through to the conventional names.
+  }
+
+  for (const name of ['main', 'master']) {
+    try {
+      await capture('git', ['rev-parse', '--verify', `refs/remotes/origin/${name}`], root)
+      return name
+    } catch {
+      continue
+    }
+  }
+  return undefined
 }
 
 function assertClone(root: string): void {

@@ -148,6 +148,37 @@ describe('atl update', () => {
     assert.equal(data.reinstalled, true, 'the missing install is retried')
   })
 
+  it('refuses on a working branch instead of reporting a no-op as success', async () => {
+    // The trap this replaces: `git pull` updated *that* branch, whose remote had not
+    // moved, reported being up to date, and the version read afterwards was still the old
+    // one — a success covering a clone left a version behind.
+    await git('git', ['-C', clone, 'checkout', '-q', '-b', 'work'])
+    await publish(remote, '1.1.0')
+
+    const result = await update()
+
+    assert.notEqual(result.code, 0)
+    assert.match(result.stderr, /on `work`, not `main`/)
+    assert.match(result.stderr, /git checkout main/)
+
+    // And nothing was pulled: refusing must not half-do the job either.
+    const declared = JSON.parse(await readFile(join(clone, 'package.json'), 'utf8')) as {
+      version: string
+    }
+    assert.equal(declared.version, '1.0.0')
+  })
+
+  it('treats a detached HEAD as pinned rather than behind', async () => {
+    const head = (await git('git', ['-C', clone, 'rev-parse', 'HEAD'])).stdout.trim()
+    await git('git', ['-C', clone, 'checkout', '-q', head])
+
+    const result = await update()
+
+    assert.notEqual(result.code, 0)
+    assert.match(result.stderr, /detached HEAD/)
+    assert.match(result.stderr, /not behind by accident/)
+  })
+
   it('says a root is not a clone rather than leaking a filesystem error', async () => {
     // Two wrong answers were possible here: the fast-forward hint attached to any git
     // failure, and a raw `ENOENT … /package.json` from reading the version first.
