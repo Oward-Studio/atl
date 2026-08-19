@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/Oward-Studio/atl/compare/v1.1.0...v1.1.1) (2026-08-19)
+
+
+### Bug Fixes
+
+* the `--link` change was reported under a French field name ([#15](https://github.com/Oward-Studio/atl/issues/15)) ([682a7a1](https://github.com/Oward-Studio/atl/commit/682a7a175fb1ec67b4572884584939bb532e422f))
+
 ## [1.1.0](https://github.com/Oward-Studio/atl/compare/v1.0.0...v1.1.0) (2026-08-18)
 
 
