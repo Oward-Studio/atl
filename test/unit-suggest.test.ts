@@ -13,6 +13,8 @@ describe('nearest-name suggestion', () => {
   })
 
   it('tolerates one edit on a short name and two on a long one', () => {
+    // `projet` is deliberate input, not a stray French label: it is the typo a French
+    // speaker actually makes, which is the point of the whole feature.
     assert.equal(closest('stat', OPTIONS), 'state')
     assert.equal(closest('projet', OPTIONS), 'project')
     assert.equal(closest('prioriy', OPTIONS), 'priority')
