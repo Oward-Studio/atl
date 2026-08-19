@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.2](https://github.com/Oward-Studio/atl/compare/v1.1.1...v1.1.2) (2026-08-19)
+
+
+### Bug Fixes
+
+* atl update pulled the current branch, not the installation's ([#17](https://github.com/Oward-Studio/atl/issues/17)) ([512f8ad](https://github.com/Oward-Studio/atl/commit/512f8ade6535a18317419b117c3e38f37b001860))
+
 ## [1.1.1](https://github.com/Oward-Studio/atl/compare/v1.1.0...v1.1.1) (2026-08-19)
 
 
