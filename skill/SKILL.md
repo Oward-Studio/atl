@@ -127,7 +127,7 @@ Acceptance criteria:
 
 ```sh
 atl issue ac <ref>                      # numbered list with progress
-atl issue ac check <ref> 1 3            # several numbers at once
+atl issue ac check <ref> 1 3            # several numbers at once; also `uncheck`
 atl issue ac add <ref> "new criterion"
 ```
 
@@ -271,8 +271,10 @@ line of text, never the dynamic table — because `update-object` accepts markdo
 express a view block. Updating a template therefore does not benefit existing objects, and no command
 will fix it: point the user to the app.
 
-The markdown the API returns is unfaithful — tables come back damaged. `atl issue ac` and
-`edit --description` **refuse** to rewrite a body containing a table rather than degrade it: point the
-user to the app.
+The markdown the API returns is unfaithful — tables come back damaged. `atl issue ac` is not
+affected: it edits one block through the `/v2` operations and never rewrites the body, so it works on
+an issue holding a table. A write that finds the issue changed since it was read fails with
+"changed since it was read": run it again. `edit --description` still rewrites the whole body, so it
+**refuses** a body containing a table rather than degrade it: point the user to the app.
 
 Full list of measured limits and frozen decisions: `docs/ANYTYPE-LIMITS.md`.

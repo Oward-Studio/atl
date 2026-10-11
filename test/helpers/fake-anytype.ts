@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
 
@@ -293,6 +294,8 @@ type FakeState = {
   createdTags: Record<string, { name: string; color: string }[]>
   /** Ids removed through DELETE, so a suite can assert what was and was not touched. */
   deleted: string[]
+  /** Makes the next `/v2` write answer 409, as if the object changed after it was read. */
+  conflictNext: boolean
 }
 
 const page = <T>(data: T[]) => ({
@@ -317,6 +320,7 @@ export async function startFakeAnytype(
     types: options.empty ? [] : TYPES.map((t) => structuredClone(t)),
     createdTags: {},
     deleted: [],
+    conflictNext: false,
   }
 
   const server: Server = createServer((req, res) => {
@@ -506,6 +510,55 @@ async function handle(
     return
   }
 
+  // `/v2` block operations. Blocks are derived from the stored markdown body, and an
+  // edit serialises back into it, so `/v1` and `/v2` always agree on one object.
+  const v2Match = path.match(new RegExp(`^/v2/spaces/${SPACE_ID}/objects/([\\w-]+)$`))
+  if (v2Match) {
+    const object = [...state.tickets, ...state.projects].find((o) => o.id === v2Match[1])
+    if (!object) {
+      send(404, { message: 'not found' })
+      return
+    }
+    const markdown = state.bodies[object.id] ?? ''
+    const etag = createHash('sha1').update(markdown).digest('hex').slice(0, 8)
+
+    if (req.method === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'application/json', ETag: etag })
+      res.end(JSON.stringify({ id: object.id, blocks: toBlocks(markdown) }))
+      return
+    }
+
+    if (req.method === 'PATCH') {
+      const match = req.headers['if-match']
+      if (match !== undefined && (state.conflictNext || match !== etag)) {
+        state.conflictNext = false
+        send(409, { status: 409, code: 'etag_mismatch', message: 'the object changed' })
+        return
+      }
+      const { ops } = (await readJson(req)) as { ops: V2Op[] }
+      const blocks = toBlocks(markdown)
+      for (const op of ops) {
+        if (op.op === 'update_block') {
+          const block = blocks.find((b) => b.id === op.id)
+          if (!block) {
+            send(400, { status: 400, code: 'validation_failed', message: `no block ${op.id}` })
+            return
+          }
+          Object.assign(block, op.set)
+        } else if (op.op === 'insert_blocks') {
+          const at = op.after === undefined ? blocks.length : blocks.findIndex((b) => b.id === op.after) + 1
+          blocks.splice(at, 0, ...toBlocks(op.markdown ?? ''))
+        } else {
+          send(400, { status: 400, code: 'validation_failed', message: `unknown op ${op.op}` })
+          return
+        }
+      }
+      state.bodies[object.id] = fromBlocks(blocks)
+      send(200, { etag: 'new', diff_stats: {} })
+      return
+    }
+  }
+
   const patchMatch = path.match(new RegExp(`^/v1/spaces/${SPACE_ID}/objects/([\\w-]+)$`))
   if (patchMatch && req.method === 'DELETE') {
     const id = patchMatch[1] as string
@@ -563,6 +616,51 @@ async function handle(
   }
 
   send(404, { message: `no fake route for ${path}` })
+}
+
+type V2Op = {
+  op: string
+  id?: string
+  after?: string
+  markdown?: string
+  set?: Record<string, unknown>
+}
+
+type FakeBlock = { id: string; type: string; text?: string; checked?: boolean; raw?: string[] }
+
+/** Just enough of the real `/v2` shape: headings, checkboxes, tables, paragraphs. */
+function toBlocks(markdown: string): FakeBlock[] {
+  const blocks: FakeBlock[] = []
+  for (const line of markdown.split('\n').map((l) => l.replace(/\s+$/, ''))) {
+    if (line === '') continue
+    const heading = /^(#{1,6})\s+(.*)$/.exec(line)
+    const checkbox = /^[-*]\s+\[([ xX])\]\s+(.*)$/.exec(line)
+    const previous = blocks.at(-1)
+    if (line.startsWith('|')) {
+      if (previous?.type === 'table') previous.raw?.push(line)
+      else blocks.push({ id: '', type: 'table', raw: [line] })
+    } else if (heading) {
+      blocks.push({ id: '', type: `heading_${heading[1]?.length}`, text: heading[2] ?? '' })
+    } else if (checkbox) {
+      const block: FakeBlock = { id: '', type: 'checkbox', text: checkbox[2] ?? '' }
+      if (checkbox[1] !== ' ') block.checked = true
+      blocks.push(block)
+    } else {
+      blocks.push({ id: '', type: 'paragraph', text: line })
+    }
+  }
+  return blocks.map((block, index) => ({ ...block, id: `b${index}` }))
+}
+
+function fromBlocks(blocks: readonly FakeBlock[]): string {
+  return blocks
+    .map((block) => {
+      if (block.type === 'table') return (block.raw ?? []).join('\n')
+      if (block.type === 'checkbox') return `- [${block.checked ? 'x' : ' '}] ${block.text}`
+      const level = /^heading_(\d)$/.exec(block.type)?.[1]
+      return level ? `${'#'.repeat(Number(level))} ${block.text}` : (block.text ?? '')
+    })
+    .join('\n')
 }
 
 function readJson(req: IncomingMessage): Promise<unknown> {

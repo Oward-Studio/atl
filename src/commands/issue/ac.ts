@@ -1,18 +1,11 @@
 import { color } from '../../lib/color.ts'
 import { type Context, withContext } from '../../lib/context.ts'
 import { AtlError, ExitCode, usageError } from '../../lib/errors.ts'
-import { findIssue, loadBody } from '../../lib/issues.ts'
-import { updateObject } from '../../lib/objects.ts'
+import { patchBlocks, readBlocks } from '../../lib/blocks.ts'
+import { findIssue } from '../../lib/issues.ts'
 import { info, json, out, success } from '../../lib/output.ts'
-import {
-  acProgress,
-  addCriterion,
-  AC_HEADING,
-  hasRichBlocks,
-  parseBody,
-  setChecked,
-  type Criterion,
-} from '../../model/acceptance.ts'
+import { acProgress, AC_HEADING, type Criterion } from '../../model/acceptance.ts'
+import { addCriterionOp, criteriaBlocks, setCheckedOps } from '../../model/blocks.ts'
 import { displayRef, type Issue } from '../../model/issue.ts'
 import type { CommandContext } from '../../router.ts'
 
@@ -22,6 +15,9 @@ type Action = (typeof ACTIONS)[number]
 /**
  * `atl issue ac <ref>` lists, `atl issue ac check|uncheck <ref> <n…>` tick and untick,
  * `atl issue ac add <ref> "text"` appends.
+ *
+ * Reads and writes go through the `/v2` block operations: an edit touches the one block
+ * concerned, so the rest of the body — tables included — is never rewritten.
  */
 export async function issueAc(ctx: CommandContext): Promise<void> {
   const [first, ...rest] = ctx.args.positionals
@@ -38,40 +34,39 @@ export async function issueAc(ctx: CommandContext): Promise<void> {
 
   await withContext(ctx.json, async (context) => {
     const { issue } = await findIssue(context, reference)
-    const markdown = (await loadBody(context, issue.id)) ?? ''
+    const { api, spaceId } = context
+    const { blocks, etag } = await readBlocks(api, spaceId, issue.id)
 
     if (!action) {
-      render(context, issue, parseBody(markdown).criteria)
+      render(context, issue, criteriaBlocks(blocks))
       return
     }
 
-    const edit = action === 'add' ? applyAdd(markdown, operands) : applyCheck(markdown, operands, action)
+    const op =
+      action === 'add'
+        ? [addCriterionOp(blocks, criterionText(operands))]
+        : setCheckedOps(criteriaBlocks(blocks), checkNumbers(blocks, operands, action), action === 'check')
 
-    // Rewriting a body containing rich blocks would damage them: refuse.
-    if (hasRichBlocks(markdown)) {
-      throw new AtlError(
-        'This issue body contains a table or HTML, which rewriting would damage.',
-        ExitCode.error,
-        `Tick the criterion directly in Anytype. See docs/ANYTYPE-LIMITS.md §1.2.`,
-      )
-    }
-
-    await updateObject(context.api, context.spaceId, issue.id, { markdown: edit.markdown })
+    await patchBlocks(api, spaceId, issue.id, op, etag)
 
     // Read back: check the API really stored what we think it did.
-    const reread = parseBody((await loadBody(context, issue.id)) ?? '')
+    const reread = criteriaBlocks((await readBlocks(api, spaceId, issue.id)).blocks)
 
     if (context.json) {
-      json({ ref: displayRef(issue), criteria: reread.criteria, progress: acProgress(reread.criteria) })
+      json({ ref: displayRef(issue), criteria: texts(reread), progress: acProgress(reread) })
       return
     }
 
-    success(`${color.cyan(displayRef(issue))} — ${acProgress(reread.criteria)}`)
-    list(reread.criteria)
+    success(`${color.cyan(displayRef(issue))} — ${acProgress(reread)}`)
+    list(reread)
   })
 }
 
-function applyCheck(markdown: string, operands: readonly string[], action: 'check' | 'uncheck') {
+function checkNumbers(
+  blocks: Parameters<typeof criteriaBlocks>[0],
+  operands: readonly string[],
+  action: 'check' | 'uncheck',
+): number[] {
   if (operands.length === 0) {
     throw usageError(`\`atl issue ac ${action}\` expects at least one criterion number.`)
   }
@@ -84,7 +79,7 @@ function applyCheck(markdown: string, operands: readonly string[], action: 'chec
     return value
   })
 
-  const total = parseBody(markdown).criteria.length
+  const total = criteriaBlocks(blocks).length
   if (total === 0) {
     throw new AtlError(
       `This issue has no "${AC_HEADING}" section.`,
@@ -100,19 +95,23 @@ function applyCheck(markdown: string, operands: readonly string[], action: 'chec
     )
   }
 
-  return setChecked(markdown, numbers, action === 'check')
+  return numbers
 }
 
-function applyAdd(markdown: string, operands: readonly string[]) {
+function criterionText(operands: readonly string[]): string {
   const text = operands.join(' ').trim()
   if (!text) throw usageError('`atl issue ac add` expects the criterion text.')
+  return text
+}
 
-  return addCriterion(markdown, text)
+/** The ids stay internal: the output carries what the owner reads. */
+function texts(criteria: readonly Criterion[]): Criterion[] {
+  return criteria.map(({ text, checked }) => ({ text, checked }))
 }
 
 function render(context: Context, issue: Issue, criteria: readonly Criterion[]): void {
   if (context.json) {
-    json({ ref: displayRef(issue), criteria, progress: acProgress(criteria) })
+    json({ ref: displayRef(issue), criteria: texts(criteria), progress: acProgress(criteria) })
     return
   }
 

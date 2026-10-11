@@ -24,9 +24,9 @@ Accepted consequence: the `atl-issue-comments` issue stays in the backlog, block
 
 `update-object` accepts a markdown body only, and what comes back is not what was written.
 
-- **Tables come back damaged**: cells return separated by `<br>`. `atl issue ac` and
-  `edit --description` therefore **refuse** to rewrite a body containing a table rather than degrade
-  it — in that case, point the user to the application.
+- **Tables come back damaged**: cells return separated by `<br>`. `edit --description` therefore
+  **refuses** to rewrite a body containing a table rather than degrade it — in that case, point the
+  user to the application. `atl issue ac` no longer has the problem: it goes through `/v2` (below).
 - **Escapes accumulate**, one level per write → read cycle: measured 2 → 3 → 4 backslashes on the
   real space. Hence `forWriting` (`src/model/acceptance.ts`), which unescapes to a fixed point
   instead of making a single pass. Verified: 4 → 1, then stable.
@@ -47,6 +47,11 @@ pre-release that is served alongside `/v1`, which it leaves unchanged.
   the table kept its shape.
 - Reads return an `etag`; `If-Match` makes a write fail when the object changed in between.
 - `/v2` routes do not take the `Anytype-Version` header.
+- A stale `If-Match` answers **409** with code `etag_mismatch`; `atl` reports it as "changed since
+  it was read".
+- `update_block` takes `set: {checked: true|false}`, addressed by block `id`, and
+  `insert_blocks` takes `after: <block id>` with a `markdown` item. Both measured on 2026-10-11.
+- The `ETag` of a read is the **response header**, not a body field.
 
 ### 1.3 HTML entities are stored, not merely displayed
 

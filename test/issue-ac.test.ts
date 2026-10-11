@@ -60,38 +60,30 @@ describe('atl issue ac', () => {
     assert.equal(result.criteria[0]?.checked, false)
   })
 
-  it('touches only the brackets: the rest of the body is unchanged', async () => {
-    // Compared modulo rendering escapes: the API adds them on read, and the CLI
-    // strips them on write so they do not accumulate.
-    const unescape = (s: string) => s.replace(/\\([\\`*_{}[\]()#+\-.!|])/g, '$1')
+  it('touches only the ticked block: the rest of the body is unchanged', async () => {
+    const lines = (body: string) => body.split('\n').map((line) => line.trimEnd()).filter((line) => line !== '')
 
-    const before = unescape(api.state.bodies['tk-1'] as string)
+    const before = lines(api.state.bodies['tk-1'] as string)
     await ac(['check', 'atl-label-sort', '2'])
-    const after = api.state.bodies['tk-1'] as string
+    const after = lines(api.state.bodies['tk-1'] as string)
 
-    const b = before.split('\n')
-    const a = after.split('\n')
-    assert.equal(a.length, b.length)
-
-    const changed = a.map((line, i) => (line === b[i] ? undefined : i)).filter((i) => i !== undefined)
+    assert.equal(after.length, before.length)
+    const changed = after.map((line, i) => (line === before[i] ? undefined : i)).filter((i) => i !== undefined)
     assert.equal(changed.length, 1, `changed lines: ${changed.join(', ')}`)
-    assert.equal(a[changed[0] as number], (b[changed[0] as number] as string).replace('[ ]', '[x]'))
+    assert.equal(after[changed[0] as number], (before[changed[0] as number] as string).replace('[ ]', '[x]'))
   })
 
-  it('escapes do not accumulate from one write to the next', async () => {
-    // Bug measured on the real API: every round trip added a backslash,
-    // indefinitely. The fixture body contains `dev\_label`.
+  it('leaves escapes alone: no write adds or strips one', async () => {
+    // On `/v1` every round trip added a backslash. A block edit never rewrites the text
+    // around it, so the count cannot move. The fixture body contains `dev\_label`.
     const count = (s: string) => (s.match(/\\/g) ?? []).length
-    assert.ok(count(api.state.bodies['tk-1'] as string) > 0, 'the fixture must contain an escape')
+    const initial = count(api.state.bodies['tk-1'] as string)
+    assert.ok(initial > 0, 'the fixture must contain an escape')
 
     await ac(['check', 'atl-label-sort', '2'])
-    const first = count(api.state.bodies['tk-1'] as string)
-
     await ac(['uncheck', 'atl-label-sort', '2'])
-    const second = count(api.state.bodies['tk-1'] as string)
 
-    assert.equal(first, 0, 'rendering escapes are stripped on write')
-    assert.equal(second, 0, 'and do not come back')
+    assert.equal(count(api.state.bodies['tk-1'] as string), initial)
   })
 
   it('preserves the free text written in the section', async () => {
@@ -163,23 +155,16 @@ describe('atl issue ac', () => {
     assert.match(result.stderr, /Missing issue reference/)
   })
 
-  it('refuses to write a body containing a table', async () => {
-    api.state.bodies['tk-1'] = [
-      '| Column | Value |',
-      '|---|---|',
-      '| a | b |',
-      '',
-      "## Acceptance criteria",
-      '- [ ] a criterion',
-    ].join('\n')
+  it('ticks a criterion in a body containing a table, and leaves the table as it was', async () => {
+    const table = ['| Column | Value |', '|---|---|', '| a | b |']
+    api.state.bodies['tk-1'] = [...table, '', '## Acceptance criteria', '- [ ] a criterion'].join('\n')
 
-    const result = await runCli(['issue', 'ac', 'check', 'atl-label-sort', '1'], {
-      sandbox,
-      apiUrl: api.url,
-    })
-    assert.equal(result.code, 1)
-    assert.match(result.stderr, /table or HTML/)
-    assert.match(api.state.bodies['tk-1'] as string, /- \[ \] a criterion/, 'nothing must be written')
+    const result = await ac(['check', 'atl-label-sort', '1'])
+
+    assert.equal(result.progress, '1/1')
+    const body = api.state.bodies['tk-1'] as string
+    assert.ok(body.startsWith(table.join('\n')), 'the table must be untouched')
+    assert.match(body, /- \[x\] a criterion/)
   })
 
   it('does not read `<ref>` in inline code as HTML', async () => {
@@ -196,18 +181,29 @@ describe('atl issue ac', () => {
     assert.equal(result.progress, '1/1')
   })
 
-  it('refuses a body containing <br>, the mark of a rendered table', async () => {
+  it('ticks a criterion in a body containing <br>, which a rewrite would have damaged', async () => {
     api.state.bodies['tk-1'] = [
       'Text with a forced<br>break.',
-      "## Acceptance criteria",
+      '## Acceptance criteria',
       '- [ ] a criterion',
     ].join('\n')
+
+    await ac(['check', 'atl-label-sort', '1'])
+
+    assert.match(api.state.bodies['tk-1'] as string, /forced<br>break/)
+  })
+
+  it('refuses a write when the object changed since it was read', async () => {
+    api.state.conflictNext = true
+    const before = api.state.bodies['tk-1']
 
     const result = await runCli(['issue', 'ac', 'check', 'atl-label-sort', '1'], {
       sandbox,
       apiUrl: api.url,
     })
     assert.equal(result.code, 1)
+    assert.match(result.stderr, /changed since it was read/)
+    assert.equal(api.state.bodies['tk-1'], before, 'nothing must be written')
   })
 
   it('issue view sees the freshly ticked criterion', async () => {

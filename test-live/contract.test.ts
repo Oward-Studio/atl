@@ -9,8 +9,10 @@ import {
   searchObjects,
   updateObject,
 } from '../src/lib/objects.ts'
+import { patchBlocks, readBlocks } from '../src/lib/blocks.ts'
 import { resolvePropertyId, resolveTagId, resolveTagIds } from '../src/lib/resolve.ts'
 import { parseBody } from '../src/model/acceptance.ts'
+import { addCriterionOp, criteriaBlocks, setCheckedOps } from '../src/model/blocks.ts'
 import {
   PROJECT_PROP,
   PROJECT_TYPE_KEY,
@@ -153,6 +155,52 @@ describe(
       assert.deepEqual(parsed.criteria[0], { text: 'first criterion', checked: true })
       assert.deepEqual(parsed.criteria[1], { text: 'second criterion', checked: false })
       assert.match(parsed.description, /Description of the test issue/)
+    })
+
+    it('edits one criterion through /v2 without touching the table beside it', async () => {
+      // `atl issue ac` rests on this (docs/ANYTYPE-LIMITS.md §1.2). `/v2` is a pre-release:
+      // if its block shape moves, this is the test that says so.
+      const created = await createTicket('blocks')
+      const body = [
+        '| a | b |',
+        '|---|---|',
+        '| 1 | 2 |',
+        '',
+        '## Acceptance criteria',
+        '- [ ] first',
+        '- [ ] second',
+      ].join('\n')
+      await updateObject(api, spaceId, created.id, { markdown: body })
+
+      const before = await readBlocks(api, spaceId, created.id)
+      const criteria = criteriaBlocks(before.blocks)
+      assert.deepEqual(criteria.map((c) => c.text), ['first', 'second'])
+      assert.ok(before.etag, 'a /v2 read carries an ETag')
+      const table = before.blocks.find((block) => block.type === 'table')
+
+      await patchBlocks(
+        api,
+        spaceId,
+        created.id,
+        [...setCheckedOps(criteria, [2], true), addCriterionOp(before.blocks, 'third')],
+        before.etag,
+      )
+
+      const after = await readBlocks(api, spaceId, created.id)
+      assert.deepEqual(
+        criteriaBlocks(after.blocks).map(({ text, checked }) => ({ text, checked })),
+        [
+          { text: 'first', checked: false },
+          { text: 'second', checked: true },
+          { text: 'third', checked: false },
+        ],
+      )
+      assert.deepEqual(after.blocks.find((block) => block.type === 'table'), table)
+
+      await assert.rejects(
+        patchBlocks(api, spaceId, created.id, setCheckedOps(criteria, [1], true), before.etag),
+        /changed since it was read/,
+      )
     })
 
     it('does not maintain the inverse relation, hence the double write', async () => {

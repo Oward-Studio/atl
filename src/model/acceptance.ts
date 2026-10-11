@@ -16,7 +16,7 @@ export const AC_HEADING = 'Acceptance criteria'
  * different answers to "is this the criteria section?" would let one add a section the
  * other cannot see.
  */
-function isAcHeading(title: string): boolean {
+export function isAcHeading(title: string): boolean {
   return normalize(title) === normalize(AC_HEADING)
 }
 
