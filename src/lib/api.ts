@@ -23,7 +23,10 @@ export type RequestOptions = {
   method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'
   query?: Record<string, string | number | undefined>
   body?: unknown
+  headers?: Record<string, string>
 }
+
+export type Exchange<T> = { body: T; etag: string | undefined }
 
 export class ApiClient {
   private readonly baseUrl: string
@@ -37,15 +40,19 @@ export class ApiClient {
   }
 
   async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+    return (await this.exchange<T>(path, options)).body
+  }
+
+  /** Like `request`, and also returns the `ETag` the `/v2` routes put on a read. */
+  async exchange<T>(path: string, options: RequestOptions = {}): Promise<Exchange<T>> {
     const url = new URL(`${this.baseUrl}${path}`)
     for (const [key, value] of Object.entries(options.query ?? {})) {
       if (value !== undefined) url.searchParams.set(key, String(value))
     }
 
-    const headers: Record<string, string> = {
-      Accept: 'application/json',
-      'Anytype-Version': API_VERSION,
-    }
+    // `/v2` routes are not versioned by header (docs/ANYTYPE-LIMITS.md §1.2).
+    const headers: Record<string, string> = { Accept: 'application/json', ...options.headers }
+    if (!path.startsWith('/v2/')) headers['Anytype-Version'] = API_VERSION
     if (this.appKey) headers['Authorization'] = `Bearer ${this.appKey}`
     if (options.body !== undefined) headers['Content-Type'] = 'application/json'
 
@@ -74,6 +81,14 @@ export class ApiClient {
       )
     }
 
+    if (response.status === 409 && options.headers?.['If-Match'] !== undefined) {
+      throw new AtlError(
+        'The object changed since it was read.',
+        ExitCode.error,
+        'Run the command again.',
+      )
+    }
+
     if (!response.ok) {
       throw new AtlError(
         `${options.method ?? 'GET'} ${path} → HTTP ${response.status}${await detail(response)}`,
@@ -82,14 +97,14 @@ export class ApiClient {
 
     if (response.status === 204) {
       countApi(0)
-      return undefined as T
+      return { body: undefined as T, etag: undefined }
     }
 
     // Read the text rather than `.json()` to measure exactly what the API returned:
     // that is the volume `atl` absorbs on the context's behalf.
     const text = await response.text()
     countApi(text.length)
-    return JSON.parse(text) as T
+    return { body: JSON.parse(text) as T, etag: response.headers.get('ETag') ?? undefined }
   }
 
   get<T>(path: string, query?: RequestOptions['query']): Promise<T> {

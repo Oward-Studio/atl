@@ -2,6 +2,7 @@ import { stateSeed } from '../model/enums.ts'
 import type { Command, Router } from '../router.ts'
 import { auth } from './auth.ts'
 import { cacheClear } from './cache.ts'
+import { configApi } from './config.ts'
 import { gain } from './gain.ts'
 import { init } from './init.ts'
 import { update } from './update.ts'
@@ -221,6 +222,14 @@ const commands: Command[] = [
   },
 
   // ------------------------------------------------------------ system
+  {
+    path: ['config', 'api'],
+    operands: '[<v1|v2>]',
+    summary: 'Shows or selects the Anytype API that edits issue bodies',
+    phase: 0,
+    flags: [],
+    run: configApi,
+  },
   {
     path: ['space'],
     operands: '[<name>]',

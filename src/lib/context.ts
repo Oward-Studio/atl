@@ -1,8 +1,8 @@
 import { ApiClient } from './api.ts'
-import { createV1BodyStore } from './body-store-v1.ts'
+import { createBodyStore } from './body-stores.ts'
 import type { BodyStore } from './body-store.ts'
 import { cacheFlush } from './cache.ts'
-import { loadConfig, requireAppKey, type ReadyConfig } from './config.ts'
+import { DEFAULT_API_VERSION, loadConfig, requireAppKey, type ReadyConfig } from './config.ts'
 import { configError } from './errors.ts'
 import { resolveSpaceId } from './resolve.ts'
 
@@ -41,7 +41,7 @@ export async function createContext(json: boolean, space?: string): Promise<Cont
   const api = new ApiClient({ baseUrl: config.apiUrl, appKey: config.appKey })
   const spaceId = await resolveSpaceId(api, spaceName)
 
-  return { config, api, spaceId, spaceName, body: createV1BodyStore(api, spaceId), json }
+  return { config, api, spaceId, spaceName, body: createBodyStore(config.api ?? DEFAULT_API_VERSION, api, spaceId), json }
 }
 
 /** Call at the end of a command to persist cached resolutions. */
