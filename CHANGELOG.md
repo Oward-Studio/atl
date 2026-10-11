@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/Oward-Studio/atl/compare/v1.1.2...v1.2.0) (2026-10-11)
+
+
+### Features
+
+* edit issue bodies through the Anytype /v2 API ([#23](https://github.com/Oward-Studio/atl/issues/23)) ([2fc7663](https://github.com/Oward-Studio/atl/commit/2fc76639f54595c7e2785a862375cd52c36f43fa))
+
 ## [1.1.2](https://github.com/Oward-Studio/atl/compare/v1.1.1...v1.1.2) (2026-08-19)
 
 
