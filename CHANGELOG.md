@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.1](https://github.com/Oward-Studio/atl/compare/v1.2.0...v1.2.1) (2026-10-11)
+
+
+### Bug Fixes
+
+* an issue holding a table with an empty header could not be read ([#25](https://github.com/Oward-Studio/atl/issues/25)) ([80a391f](https://github.com/Oward-Studio/atl/commit/80a391f2ef727f58903941f8c1615026589b67de))
+
 ## [1.2.0](https://github.com/Oward-Studio/atl/compare/v1.1.2...v1.2.0) (2026-10-11)
 
 
