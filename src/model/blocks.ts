@@ -12,7 +12,10 @@ export type Block = {
   checked?: boolean
   indent?: number
   language?: string
-  rows?: { is_header?: boolean; cells: unknown[] }[]
+  /** Columns may carry no `header` at all. */
+  columns?: { id: string; header?: string }[]
+  /** A row with nothing in it comes without `cells` (an empty header, say). */
+  rows?: { is_header?: boolean; cells?: unknown[] }[]
 }
 
 /** A criterion together with the block that holds it, which is what an edit addresses. */
@@ -140,15 +143,22 @@ export function setDescriptionOps(
 
 const cellText = (cell: unknown): string => {
   if (typeof cell === 'string') return cell
+  if (Array.isArray(cell)) return cell.map(cellText).join(' ')
   if (cell && typeof cell === 'object' && 'text' in cell) return String((cell as { text: unknown }).text)
   return ''
 }
 
-function tableMarkdown(rows: NonNullable<Block['rows']>): string[] {
-  const lines = rows.map((row) => `| ${row.cells.map(cellText).join(' | ')} |`)
-  const header = rows[0]
-  if (header) lines.splice(1, 0, `|${header.cells.map(() => '---').join('|')}|`)
-  return lines
+function tableMarkdown(block: Block): string[] {
+  const rows = block.rows ?? []
+  const width = Math.max(block.columns?.length ?? 0, ...rows.map((row) => row.cells?.length ?? 0))
+  if (width === 0) return []
+
+  const line = (cells: readonly unknown[] = []): string =>
+    `| ${Array.from({ length: width }, (_, index) => cellText(cells[index])).join(' | ')} |`
+
+  const [first, ...rest] = rows
+  // A table's first row is its header, empty or not: the separator goes right under it.
+  return [line(first?.cells), `|${Array(width).fill('---').join('|')}|`, ...rest.map((row) => line(row.cells))]
 }
 
 /** Renders blocks back to the markdown a person would have typed. */
@@ -169,7 +179,7 @@ export function blocksToMarkdown(blocks: readonly Block[]): string {
     else if (block.type === 'quote') lines.push(`> ${text}`)
     else if (block.type === 'divider') lines.push('---')
     else if (block.type === 'code') lines.push(`\`\`\`${block.language ?? ''}`, text.replace(/\n$/, ''), '```')
-    else if (block.type === 'table') lines.push(...tableMarkdown(block.rows ?? []))
+    else if (block.type === 'table') lines.push(...tableMarkdown(block))
     else lines.push(text)
 
     // List items stay tight; every other block is its own paragraph.

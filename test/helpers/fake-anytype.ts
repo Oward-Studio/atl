@@ -647,7 +647,7 @@ type FakeBlock = {
   text?: string
   checked?: boolean
   raw?: string[]
-  rows?: { is_header?: boolean; cells: string[] }[]
+  rows?: { is_header?: boolean; cells?: string[] }[]
 }
 
 /** Just enough of the real `/v2` shape: headings, checkboxes, tables, paragraphs. */
@@ -681,10 +681,14 @@ function served(block: FakeBlock): FakeBlock {
   return block.type === 'table'
     ? { ...rest, rows: (block.raw ?? []).filter((l) => !/^\|[-:| ]+\|$/.test(l)).map((l, i) => ({
         ...(i === 0 ? { is_header: true } : {}),
-        cells: l.split('|').slice(1, -1).map((c) => c.trim()),
+        // As the real API: a row with nothing in it comes without `cells`.
+        ...(cellsOf(l).some(Boolean) ? { cells: cellsOf(l) } : {}),
       })) }
     : { ...rest, ...(block.text === undefined ? {} : { text: unescape(block.text) }) }
 }
+
+const cellsOf = (line: string): string[] =>
+  line.split('|').slice(1, -1).map((c) => c.trim())
 
 function fromBlocks(blocks: readonly FakeBlock[]): string {
   return blocks
