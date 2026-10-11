@@ -106,6 +106,31 @@ describe(`atl issue view (api ${apiVersion})`, () => {
     assert.match(issue.description, /Free text left inside the section/)
   })
 
+  it('reads an issue whose body holds a table with an empty header', async () => {
+    // Regression: the real `/v2` serves such a header row without `cells`, and the read
+    // threw on it, which made the whole issue unreadable.
+    // The server is shared by the whole suite: put the body back afterwards.
+    const original = api.state.bodies['tk-1']
+    api.state.bodies['tk-1'] = [
+      'Before the table.',
+      '',
+      '|  |  |',
+      '|---|---|',
+      '| left | right |',
+      '',
+      '## Acceptance criteria',
+      '- [x] a criterion',
+    ].join('\n')
+
+    try {
+      const issue = await view(['atl-label-sort'])
+      assert.match(issue.description, /left/)
+      assert.deepEqual(issue.acceptanceCriteria, [{ text: 'a criterion', checked: true }])
+    } finally {
+      if (original !== undefined) api.state.bodies['tk-1'] = original
+    }
+  })
+
   it('returns an empty criteria list for an issue without a criteria section', async () => {
     const issue = await view(['atl-doc-deploy'])
     assert.deepEqual(issue.acceptanceCriteria, [])
