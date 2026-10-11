@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { afterEach, beforeEach, describe, it } from 'node:test'
 
-import { makeSandbox, parseJson, runCli, type Sandbox } from './helpers/cli.ts'
+import { API_VERSIONS, makeSandbox, parseJson, runCli, type Sandbox } from './helpers/cli.ts'
 import { startFakeAnytype, type FakeServer } from './helpers/fake-anytype.ts'
 
 type EditJson = {
@@ -10,7 +10,8 @@ type EditJson = {
   unchanged: string[]
 }
 
-describe('atl issue edit', () => {
+for (const apiVersion of API_VERSIONS) {
+describe(`atl issue edit (api ${apiVersion})`, () => {
   let api: FakeServer
   let sandbox: Sandbox
 
@@ -29,7 +30,7 @@ describe('atl issue edit', () => {
 
   beforeEach(async () => {
     api = await startFakeAnytype()
-    sandbox = await makeSandbox({ authenticated: true })
+    sandbox = await makeSandbox({ authenticated: true, api: apiVersion })
   })
 
   afterEach(async () => {
@@ -128,7 +129,7 @@ describe('atl issue edit', () => {
     assert.equal(api.state.bodies['tk-2'], 'Nouvelle description seule.')
   })
 
-  it('refuses to rewrite a body containing a table', async () => {
+  if (apiVersion === 'v1') it('refuses to rewrite a body containing a table', async () => {
     api.state.bodies['tk-1'] = ['| a | b |', '|---|---|', '| 1 | 2 |'].join('\n')
 
     const result = await runCli(['issue', 'edit', 'atl-label-sort', '--description', 'x'], {
@@ -162,7 +163,7 @@ describe('atl issue edit', () => {
   })
 
   it('exits with 2 on an invalid priority, before any network call', async () => {
-    const fresh = await makeSandbox({ authenticated: true })
+    const fresh = await makeSandbox({ authenticated: true, api: apiVersion })
     const before = api.hits.get('/v1/spaces') ?? 0
 
     const result = await runCli(['issue', 'edit', 'x', '--priority', 'bogus'], {
@@ -198,3 +199,4 @@ describe('atl issue edit', () => {
     assert.match(result.stdout, /priority\s+Urgent → Low/)
   })
 })
+}
