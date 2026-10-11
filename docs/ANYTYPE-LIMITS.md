@@ -32,6 +32,22 @@ Accepted consequence: the `atl-issue-comments` issue stays in the backlog, block
   instead of making a single pass. Verified: 4 → 1, then stable.
 - **Checkboxes do survive**, which is what makes acceptance criteria viable at all.
 
+Re-measured on 2026-10-11 with `Anytype-Version: 2025-11-08`: three read → write cycles through
+`/v1` still add two `<br>` per table cell and one backslash level per cycle. The newer version does
+not change this; only the `/v2` surface below does.
+
+**`/v2` edits blocks instead of rewriting the body.** Measured on 2026-10-11 against the running
+application, on a throwaway page holding a table and a checkbox (deleted afterwards). `/v2` is a
+pre-release that is served alongside `/v1`, which it leaves unchanged.
+
+- `GET /v2/spaces/{id}/objects/{id}` returns structured blocks: a `table` with `columns` and `rows`
+  whose `cells` are clean strings, a `checkbox` with its own `text`. No `<br>`, no escape levels.
+- `PATCH` with `{"ops": [...]}` applied `replace_text` (inside a checkbox) and `set_cell`
+  (`table_id`, `row` id, `col` id or header text, `value`) in one atomic call: `blocks_changed: 2`,
+  the table kept its shape.
+- Reads return an `etag`; `If-Match` makes a write fail when the object changed in between.
+- `/v2` routes do not take the `Anytype-Version` header.
+
 ### 1.3 HTML entities are stored, not merely displayed
 
 A probe named `sonde <marqueur> html` came back **verbatim**: the API re-encodes nothing. An `&amp;`
