@@ -1,10 +1,10 @@
 import { color } from '../../lib/color.ts'
 import { withContext } from '../../lib/context.ts'
 import { usageError } from '../../lib/errors.ts'
-import { findIssue, loadBody, titleIndex } from '../../lib/issues.ts'
+import { findIssue, titleIndex } from '../../lib/issues.ts'
 import { searchObjects } from '../../lib/objects.ts'
 import { definitionList, json, out } from '../../lib/output.ts'
-import { acProgress, parseBody, AC_HEADING, type Criterion } from '../../model/acceptance.ts'
+import { acProgress, AC_HEADING, type Criterion } from '../../model/acceptance.ts'
 import { isSettled, paintPriority, paintState, stateIcon,
   stateLabel,
   priorityLabel,
@@ -33,12 +33,12 @@ export async function issueView(ctx: CommandContext): Promise<void> {
   await withContext(ctx.json, async (context) => {
     const { object, issue, tickets } = await findIssue(context, reference)
 
-    const [markdown, projects] = await Promise.all([
-      loadBody(context, issue.id),
+    const [body, projects] = await Promise.all([
+      context.body.read(issue.id),
       searchObjects(context.api, context.spaceId, { types: [PROJECT_TYPE_KEY] }),
     ])
 
-    const { description, criteria } = parseBody(markdown)
+    const { description, criteria } = body
     const titles = titleIndex(tickets)
     const projectNames = new Map(projects.map((p) => [p.id, p.name]))
 

@@ -1,6 +1,6 @@
 import type { Context } from './context.ts'
 import { notFoundError } from './errors.ts'
-import { getObject, searchObjects } from './objects.ts'
+import { searchObjects } from './objects.ts'
 import { normalize } from './text.ts'
 import type { AnytypeObject } from '../model/object.ts'
 import { displayRef, toIssue, TICKET_TYPE_KEY, type Issue } from '../model/issue.ts'
@@ -50,12 +50,6 @@ export function resolveIn(tickets: AnytypeObject[], reference: string): IssueMat
     `No issue matches "${reference}".`,
     'List the references with `atl ls`.',
   )
-}
-
-/** Loads the markdown body, absent from search results. */
-export async function loadBody(context: Context, objectId: string): Promise<string | undefined> {
-  const object = await getObject(context.api, context.spaceId, objectId)
-  return object.markdown
 }
 
 /** id → title table, to show relations by something other than their id. */
