@@ -8,6 +8,9 @@ import { APP_KEY, SPACE_NAME } from './fake-anytype.ts'
 
 const BIN = fileURLToPath(new URL('../../bin/atl.mjs', import.meta.url))
 
+/** The Anytype APIs a body-editing suite runs against: one behaviour, two implementations. */
+export const API_VERSIONS = ['v1', 'v2'] as const
+
 export type RunResult = {
   code: number
   stdout: string
@@ -26,7 +29,9 @@ export type Sandbox = {
  * Disposable XDG directories: no test may read or write the owner's real config in
  * ~/.config/atl/, nor pollute their usage journal.
  */
-export async function makeSandbox(options: { authenticated?: boolean } = {}): Promise<Sandbox> {
+export async function makeSandbox(
+  options: { authenticated?: boolean; api?: 'v1' | 'v2' } = {},
+): Promise<Sandbox> {
   const root = await mkdtemp(join(tmpdir(), 'atl-test-'))
   const configHome = join(root, 'config')
   const cacheHome = join(root, 'cache')
@@ -39,7 +44,12 @@ export async function makeSandbox(options: { authenticated?: boolean } = {}): Pr
   if (options.authenticated) {
     await writeFile(
       configFile,
-      JSON.stringify({ apiUrl: 'http://127.0.0.1:1', appKey: APP_KEY, space: SPACE_NAME }),
+      JSON.stringify({
+        apiUrl: 'http://127.0.0.1:1',
+        appKey: APP_KEY,
+        space: SPACE_NAME,
+        ...(options.api ? { api: options.api } : {}),
+      }),
       { mode: 0o600 },
     )
   }
@@ -70,6 +80,7 @@ export function runCli(
   delete env['ATL_APP_KEY']
   delete env['ATL_SPACE']
   delete env['ATL_API_URL']
+  delete env['ATL_API']
   // The update notice reaches a host other than Anytype, so its switches are neutralised
   // too: exported by a developer, one direction makes every suite call api.github.com and
   // the other makes the notice's own tests fail.

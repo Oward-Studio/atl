@@ -1,18 +1,9 @@
 import { color } from '../../lib/color.ts'
 import { type Context, withContext } from '../../lib/context.ts'
 import { AtlError, ExitCode, usageError } from '../../lib/errors.ts'
-import { findIssue, loadBody } from '../../lib/issues.ts'
-import { updateObject } from '../../lib/objects.ts'
+import { findIssue } from '../../lib/issues.ts'
 import { info, json, out, success } from '../../lib/output.ts'
-import {
-  acProgress,
-  addCriterion,
-  AC_HEADING,
-  hasRichBlocks,
-  parseBody,
-  setChecked,
-  type Criterion,
-} from '../../model/acceptance.ts'
+import { acProgress, AC_HEADING, type Criterion } from '../../model/acceptance.ts'
 import { displayRef, type Issue } from '../../model/issue.ts'
 import type { CommandContext } from '../../router.ts'
 
@@ -38,40 +29,33 @@ export async function issueAc(ctx: CommandContext): Promise<void> {
 
   await withContext(ctx.json, async (context) => {
     const { issue } = await findIssue(context, reference)
-    const markdown = (await loadBody(context, issue.id)) ?? ''
+    const snapshot = await context.body.read(issue.id)
 
     if (!action) {
-      render(context, issue, parseBody(markdown).criteria)
+      render(context, issue, snapshot.criteria)
       return
     }
 
-    const edit = action === 'add' ? applyAdd(markdown, operands) : applyCheck(markdown, operands, action)
-
-    // Rewriting a body containing rich blocks would damage them: refuse.
-    if (hasRichBlocks(markdown)) {
-      throw new AtlError(
-        'This issue body contains a table or HTML, which rewriting would damage.',
-        ExitCode.error,
-        `Tick the criterion directly in Anytype. See docs/ANYTYPE-LIMITS.md §1.2.`,
-      )
-    }
-
-    await updateObject(context.api, context.spaceId, issue.id, { markdown: edit.markdown })
-
-    // Read back: check the API really stored what we think it did.
-    const reread = parseBody((await loadBody(context, issue.id)) ?? '')
+    const { criteria } =
+      action === 'add'
+        ? await context.body.addCriterion(snapshot, criterionText(operands))
+        : await context.body.setChecked(
+            snapshot,
+            checkNumbers(snapshot.criteria.length, operands, action),
+            action === 'check',
+          )
 
     if (context.json) {
-      json({ ref: displayRef(issue), criteria: reread.criteria, progress: acProgress(reread.criteria) })
+      json({ ref: displayRef(issue), criteria, progress: acProgress(criteria) })
       return
     }
 
-    success(`${color.cyan(displayRef(issue))} — ${acProgress(reread.criteria)}`)
-    list(reread.criteria)
+    success(`${color.cyan(displayRef(issue))} — ${acProgress(criteria)}`)
+    list(criteria)
   })
 }
 
-function applyCheck(markdown: string, operands: readonly string[], action: 'check' | 'uncheck') {
+function checkNumbers(total: number, operands: readonly string[], action: 'check' | 'uncheck') {
   if (operands.length === 0) {
     throw usageError(`\`atl issue ac ${action}\` expects at least one criterion number.`)
   }
@@ -84,7 +68,6 @@ function applyCheck(markdown: string, operands: readonly string[], action: 'chec
     return value
   })
 
-  const total = parseBody(markdown).criteria.length
   if (total === 0) {
     throw new AtlError(
       `This issue has no "${AC_HEADING}" section.`,
@@ -100,14 +83,13 @@ function applyCheck(markdown: string, operands: readonly string[], action: 'chec
     )
   }
 
-  return setChecked(markdown, numbers, action === 'check')
+  return numbers
 }
 
-function applyAdd(markdown: string, operands: readonly string[]) {
+function criterionText(operands: readonly string[]): string {
   const text = operands.join(' ').trim()
   if (!text) throw usageError('`atl issue ac add` expects the criterion text.')
-
-  return addCriterion(markdown, text)
+  return text
 }
 
 function render(context: Context, issue: Issue, criteria: readonly Criterion[]): void {

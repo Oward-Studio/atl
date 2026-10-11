@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { after, before, describe, it } from 'node:test'
 
-import { makeSandbox, parseJson, runCli, type Sandbox } from './helpers/cli.ts'
+import { API_VERSIONS, makeSandbox, parseJson, runCli, type Sandbox } from './helpers/cli.ts'
 import { startFakeAnytype, type FakeServer } from './helpers/fake-anytype.ts'
 
 type ViewJson = {
@@ -19,7 +19,8 @@ type ViewJson = {
   acceptanceCriteria: { text: string; checked: boolean }[]
 }
 
-describe('atl issue view', () => {
+for (const apiVersion of API_VERSIONS) {
+describe(`atl issue view (api ${apiVersion})`, () => {
   let api: FakeServer
   let sandbox: Sandbox
 
@@ -31,7 +32,7 @@ describe('atl issue view', () => {
 
   before(async () => {
     api = await startFakeAnytype()
-    sandbox = await makeSandbox({ authenticated: true })
+    sandbox = await makeSandbox({ authenticated: true, api: apiVersion })
   })
 
   after(async () => {
@@ -163,3 +164,4 @@ describe('atl issue view', () => {
     assert.doesNotThrow(() => JSON.parse(result.stdout))
   })
 })
+}

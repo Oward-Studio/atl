@@ -1,14 +1,13 @@
 import { flagString, type ParsedArgs } from '../../lib/args.ts'
 import { color } from '../../lib/color.ts'
 import { type Context, withContext } from '../../lib/context.ts'
-import { AtlError, ExitCode, usageError } from '../../lib/errors.ts'
-import { findIssue, loadBody } from '../../lib/issues.ts'
+import { usageError } from '../../lib/errors.ts'
+import { findIssue } from '../../lib/issues.ts'
 import { updateObject } from '../../lib/objects.ts'
 import { definitionList, info, json, out, success } from '../../lib/output.ts'
 import { findProject, listProjects } from '../../lib/projects.ts'
 import { resolveTagId, resolveTagIds } from '../../lib/resolve.ts'
 import { sameName } from '../../lib/text.ts'
-import { hasRichBlocks, parseBody, replaceDescription } from '../../model/acceptance.ts'
 import { parsePriority, type PriorityKey,
   priorityLabel,
 } from '../../model/enums.ts'
@@ -93,9 +92,9 @@ async function apply(context: Context, reference: string, wanted: Wanted): Promi
   const unchanged: string[] = []
   const patch: {
     name?: string
-    markdown?: string
     properties?: unknown[]
   } = {}
+  let writeDescription: (() => Promise<void>) | undefined
   const properties: unknown[] = []
 
   if (wanted.title !== undefined) {
@@ -107,21 +106,14 @@ async function apply(context: Context, reference: string, wanted: Wanted): Promi
   }
 
   if (wanted.description !== undefined) {
-    const markdown = (await loadBody(context, issue.id)) ?? ''
-    const current = parseBody(markdown).description
+    const snapshot = await context.body.read(issue.id)
+    const current = snapshot.description
 
     if (current === wanted.description) unchanged.push('description')
     else {
-      // Rewriting a body with a table would damage it: same rule as `issue ac`.
-      if (hasRichBlocks(markdown)) {
-        throw new AtlError(
-          'This issue body contains a table, which rewriting would damage.',
-          ExitCode.error,
-          'Edit the description directly in Anytype.',
-        )
-      }
-      patch.markdown = replaceDescription(markdown, wanted.description)
-      changes.push({ field: 'description', from: preview(current), to: preview(wanted.description) })
+      const description = wanted.description
+      writeDescription = () => context.body.setDescription(snapshot, description)
+      changes.push({ field: 'description', from: preview(current), to: preview(description) })
     }
   }
 
@@ -173,7 +165,8 @@ async function apply(context: Context, reference: string, wanted: Wanted): Promi
 
   if (properties.length > 0) patch.properties = properties
 
-  if (changes.length > 0) {
+  if (writeDescription) await writeDescription()
+  if (Object.keys(patch).length > 0) {
     await updateObject(context.api, context.spaceId, issue.id, patch)
   }
 

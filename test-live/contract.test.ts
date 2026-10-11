@@ -9,6 +9,7 @@ import {
   searchObjects,
   updateObject,
 } from '../src/lib/objects.ts'
+import { createV2BodyStore } from '../src/lib/body-store-v2.ts'
 import { resolvePropertyId, resolveTagId, resolveTagIds } from '../src/lib/resolve.ts'
 import { parseBody } from '../src/model/acceptance.ts'
 import {
@@ -153,6 +154,49 @@ describe(
       assert.deepEqual(parsed.criteria[0], { text: 'first criterion', checked: true })
       assert.deepEqual(parsed.criteria[1], { text: 'second criterion', checked: false })
       assert.match(parsed.description, /Description of the test issue/)
+    })
+
+    it('the /v2 body store edits criteria and description on the real API', async () => {
+      // The `/v2` shapes `createV2BodyStore` relies on (docs/ANYTYPE-LIMITS.md §1.2). It is a
+      // pre-release: if a block type or an op moves, this is the test that says so.
+      const store = createV2BodyStore(api, spaceId)
+      const created = await createTicket('bodystore')
+      await updateObject(api, spaceId, created.id, {
+        markdown: [
+          'Old description.',
+          '',
+          '| a | b |',
+          '|---|---|',
+          '| 1 | 2 |',
+          '',
+          '## Acceptance criteria',
+          '- [ ] first',
+          '- [ ] second',
+        ].join('\n'),
+      })
+
+      const read = await store.read(created.id)
+      assert.deepEqual(read.criteria.map((c) => c.text), ['first', 'second'])
+      assert.match(read.description, /Old description\./)
+      assert.match(read.description, /\| 1 \| 2 \|/, 'the table is part of what the description shows')
+
+      const ticked = await store.setChecked(read, [2], true)
+      assert.deepEqual(ticked.criteria.map((c) => c.checked), [false, true])
+      assert.match(ticked.description, /\| 1 \| 2 \|/, 'ticking leaves the table alone')
+
+      const added = await store.addCriterion(await store.read(created.id), 'third')
+      assert.deepEqual(added.criteria.map((c) => c.text), ['first', 'second', 'third'])
+
+      await store.setDescription(await store.read(created.id), 'New description.')
+      const after = await store.read(created.id)
+      assert.equal(after.description, 'New description.')
+      assert.deepEqual(after.criteria.map((c) => c.text), ['first', 'second', 'third'])
+      assert.deepEqual(after.criteria.map((c) => c.checked), [false, true, false])
+
+      // A stale snapshot must be refused, not written over the newer body.
+      const stale = await store.read(created.id)
+      await store.addCriterion(await store.read(created.id), 'fourth')
+      await assert.rejects(store.setChecked(stale, [1], true), /changed since it was read/)
     })
 
     it('does not maintain the inverse relation, hence the double write', async () => {

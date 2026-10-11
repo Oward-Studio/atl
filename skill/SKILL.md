@@ -173,6 +173,8 @@ atl space                               # lists spaces, marks the default one
 atl space "<name>"                      # changes the default space, without re-pairing
 atl auth --status                       # config and connection, writes nothing
 atl cache clear                         # clears the name-resolution cache
+atl config api                          # which Anytype API edits issue bodies (default v2)
+atl config api v1                       # falls back to v1 while /v2 is a pre-release
 atl gain                                # tokens absorbed by atl instead of the context
 atl update                              # pulls and reinstalls this installation
 ```
@@ -271,8 +273,13 @@ line of text, never the dynamic table — because `update-object` accepts markdo
 express a view block. Updating a template therefore does not benefit existing objects, and no command
 will fix it: point the user to the app.
 
-The markdown the API returns is unfaithful — tables come back damaged. `atl issue ac` and
-`edit --description` **refuse** to rewrite a body containing a table rather than degrade it: point the
-user to the app.
+`atl config api v1|v2` picks how issue bodies are read and edited; `ATL_API` overrides it for one
+command. `v2` (the default) edits blocks. `v1` rewrites the markdown body and is the fallback should
+`/v2`, still a pre-release, change under it.
+
+The markdown the `/v1` API returns is unfaithful — tables come back damaged. On `v1`, `atl issue ac`
+and `edit --description` **refuse** to rewrite a body containing a table rather than degrade it: point
+the user to the app, or switch to `v2`, which edits one block and leaves the table alone. A `v2` write
+that finds the issue changed since it was read fails with "changed since it was read": run it again.
 
 Full list of measured limits and frozen decisions: `docs/ANYTYPE-LIMITS.md`.

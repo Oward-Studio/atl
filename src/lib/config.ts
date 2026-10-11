@@ -4,8 +4,29 @@ import { DEFAULT_API_URL } from './api.ts'
 import { AtlError, ExitCode, configError } from './errors.ts'
 import { configDir, configFile } from './paths.ts'
 
+/**
+ * Which Anytype API reads and edits issue bodies. `/v2` is a pre-release, so `/v1` stays
+ * selectable until it settles (docs/ANYTYPE-LIMITS.md §1.2).
+ */
+export const API_VERSIONS = ['v1', 'v2'] as const
+export type ApiVersion = (typeof API_VERSIONS)[number]
+export const DEFAULT_API_VERSION: ApiVersion = 'v2'
+
+export function parseApiVersion(value: string): ApiVersion {
+  const found = API_VERSIONS.find((version) => version === value.trim().toLowerCase())
+  if (!found) {
+    throw configError(
+      `Unknown API version "${value}".`,
+      `Choose one of: ${API_VERSIONS.join(', ')}.`,
+    )
+  }
+  return found
+}
+
 export type Config = {
   apiUrl: string
+  /** Absent means \`DEFAULT_API_VERSION\`. */
+  api?: ApiVersion
   appKey?: string
   /** Space name, never its id (docs/ANYTYPE-LIMITS.md §3.1). */
   space?: string
@@ -25,6 +46,7 @@ export async function loadConfig(): Promise<Config> {
     apiUrl: process.env['ATL_API_URL'],
     appKey: process.env['ATL_APP_KEY'],
     space: process.env['ATL_SPACE'],
+    api: process.env['ATL_API'],
   }
 
   const config: Config = {
@@ -33,8 +55,9 @@ export async function loadConfig(): Promise<Config> {
     ...(env.apiUrl ? { apiUrl: env.apiUrl } : {}),
     ...(env.appKey ? { appKey: env.appKey } : {}),
     ...(env.space ? { space: env.space } : {}),
+    ...(env.api ? { api: parseApiVersion(env.api) } : {}),
   }
-  return config
+  return { ...config, api: config.api ?? DEFAULT_API_VERSION }
 }
 
 export async function readConfigFile(): Promise<Partial<Config>> {
