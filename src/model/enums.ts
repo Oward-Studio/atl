@@ -57,6 +57,9 @@ const facts = (state: string | undefined): StateFacts | undefined =>
 /** States kept by the default view of `atl issue list`. */
 export const ACTIVE_STATES: readonly StateKey[] = STATE_KEYS.filter((k) => STATE_FACTS[k].active)
 
+/** Closed states: the complement of what blocks work. */
+export const SETTLED_STATES: readonly StateKey[] = STATE_KEYS.filter((k) => STATE_FACTS[k].settled)
+
 /** A closed issue blocks nothing any more. */
 export function isSettled(state: string | undefined): boolean {
   return facts(state)?.settled === true

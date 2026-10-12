@@ -4,6 +4,7 @@ import { notFoundError } from './errors.ts'
 import { listProperties, listTags } from './objects.ts'
 import { listSpaces, resolveSpace } from './spaces.ts'
 import { sameName } from './text.ts'
+import type { Tag } from '../model/object.ts'
 
 
 /**
@@ -45,30 +46,54 @@ export async function resolvePropertyId(
   })
 }
 
+/** The tags of a select / multi-select property, cached: every lookup below reads this. */
+async function tagTable(api: ApiClient, spaceId: string, propertyKey: string): Promise<Tag[]> {
+  return cached(`taglist:${spaceId}:${propertyKey}`, async () =>
+    listTags(api, spaceId, await resolvePropertyId(api, spaceId, propertyKey)),
+  )
+}
+
 /** Name → id table for the tags of a select / multi-select property. */
 export async function resolveTagIds(
   api: ApiClient,
   spaceId: string,
   propertyKey: string,
 ): Promise<Record<string, string>> {
-  return cached(`tags:${spaceId}:${propertyKey}`, async () => {
-    const propertyId = await resolvePropertyId(api, spaceId, propertyKey)
-    const tags = await listTags(api, spaceId, propertyId)
-    return Object.fromEntries(tags.map((t) => [t.name, t.id]))
-  })
+  const tags = await tagTable(api, spaceId, propertyKey)
+  return Object.fromEntries(tags.map((t) => [t.name, t.id]))
 }
 
-/** Tag **key** → id, cached alongside the name table. */
+/** Tag **key** → id. */
 async function resolveTagKeys(
   api: ApiClient,
   spaceId: string,
   propertyKey: string,
 ): Promise<Record<string, string>> {
-  return cached(`tagkeys:${spaceId}:${propertyKey}`, async () => {
-    const propertyId = await resolvePropertyId(api, spaceId, propertyKey)
-    const tags = await listTags(api, spaceId, propertyId)
-    return Object.fromEntries(tags.map((t) => [t.key, t.id]))
-  })
+  const tags = await tagTable(api, spaceId, propertyKey)
+  return Object.fromEntries(tags.map((t) => [t.key, t.id]))
+}
+
+/**
+ * Tag keys the property carries. A search filter naming any other key is refused with
+ * a 400, so callers check here before pushing a condition they cannot take back.
+ */
+export async function knownTagKeys(
+  api: ApiClient,
+  spaceId: string,
+  propertyKey: string,
+): Promise<ReadonlySet<string>> {
+  return new Set((await tagTable(api, spaceId, propertyKey)).map((t) => t.key))
+}
+
+/** Key of the tag a name designates (casing and accents ignored), if there is one. */
+export async function resolveTagKey(
+  api: ApiClient,
+  spaceId: string,
+  propertyKey: string,
+  name: string,
+): Promise<string | undefined> {
+  const tags = await tagTable(api, spaceId, propertyKey)
+  return tags.find((t) => sameName(t.name, name))?.key
 }
 
 /**

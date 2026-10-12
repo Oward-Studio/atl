@@ -10,7 +10,8 @@ import {
   updateObject,
 } from '../src/lib/objects.ts'
 import { createV2BodyStore } from '../src/lib/body-store-v2.ts'
-import { resolvePropertyId, resolveTagId, resolveTagIds } from '../src/lib/resolve.ts'
+import { issueFilters, type IssueCriteria } from '../src/lib/search-filters.ts'
+import { resolvePropertyId, resolveTagId, resolveTagIds, resolveTagKey } from '../src/lib/resolve.ts'
 import { parseBody } from '../src/model/acceptance.ts'
 import {
   PROJECT_PROP,
@@ -19,7 +20,7 @@ import {
   TICKET_TYPE_KEY,
   toIssue,
 } from '../src/model/issue.ts'
-import { STATE_KEYS, PRIORITY_KEYS } from '../src/model/enums.ts'
+import { STATE_KEYS, PRIORITY_KEYS, SETTLED_STATES, isSettled } from '../src/model/enums.ts'
 import { TAGS as FAKE_TAGS } from '../test/helpers/fake-anytype.ts'
 import { liveContext, LOREM_PROJECT, REF_PREFIX } from './helpers/live.ts'
 
@@ -55,6 +56,35 @@ describe(
       assert.equal(typeof object.name, 'string')
       assert.ok(Array.isArray(object.properties))
       assert.equal(object.type?.key, TICKET_TYPE_KEY)
+    })
+
+    it('server-side filters return what filtering the whole result would', async () => {
+      const all = await searchObjects(api, spaceId, { types: [TICKET_TYPE_KEY] })
+      const issues = all.map(toIssue)
+      const bug = await resolveTagKey(api, spaceId, PROP.label, 'Bug')
+      assert.ok(bug, 'the space has a Bug label')
+
+      const cases: [string, IssueCriteria, (i: ReturnType<typeof toIssue>) => boolean][] = [
+        ['one state', { state: 'in_progress' }, (i) => i.state === 'in_progress'],
+        ['unsettled', { notStates: SETTLED_STATES }, (i) => !isSettled(i.state)],
+        ['one priority', { priority: 'high' }, (i) => i.priority === 'high'],
+        ['one label', { labels: [bug] }, (i) => i.label === 'Bug'],
+        ['one project', { projectIds: [projectId] }, (i) => i.projectIds.includes(projectId)],
+        [
+          'combined',
+          { notStates: SETTLED_STATES, priority: 'high', projectIds: [projectId] },
+          (i) => !isSettled(i.state) && i.priority === 'high' && i.projectIds.includes(projectId),
+        ],
+      ]
+
+      for (const [label, criteria, keep] of cases) {
+        const filters = issueFilters(criteria)
+        assert.ok(filters, label)
+
+        const served = await searchObjects(api, spaceId, { types: [TICKET_TYPE_KEY], filters })
+        const expected = issues.filter(keep).map((i) => i.id).sort()
+        assert.deepEqual(served.map((o) => o.id).sort(), expected, `filters differ for: ${label}`)
+      }
     })
 
     it('every property of the issue type resolves by its key', async () => {

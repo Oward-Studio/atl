@@ -1,4 +1,5 @@
 import type { ApiClient } from './api.ts'
+import type { SearchFilters } from './search-filters.ts'
 import type { AnytypeObject, Paginated, Property, Tag } from '../model/object.ts'
 
 /** Generic access to a space's objects. No notion of an issue here. */
@@ -17,6 +18,8 @@ export type SearchOptions = {
   types?: readonly string[]
   sortBy?: 'created_date' | 'last_modified_date' | 'name'
   direction?: 'asc' | 'desc'
+  /** Sent as is: the server narrows the result before it is paginated. */
+  filters?: SearchFilters
 }
 
 /** Walks every page of results. */
@@ -32,6 +35,7 @@ export async function searchObjects(
       property_key: options.sortBy ?? 'last_modified_date',
       direction: options.direction ?? 'desc',
     },
+    ...(options.filters ? { filters: options.filters } : {}),
   }
 
   const all: AnytypeObject[] = []

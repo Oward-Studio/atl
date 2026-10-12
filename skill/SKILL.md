@@ -50,7 +50,8 @@ everything by `ref`.
 
 **Always restrict.** `--state`, `--priority`, `--label` and `--project` all filter `atl ls`, and
 combine as AND — there is no need to list everything and sift afterwards, nor to fall back on
-`project view` to see one state. They cut the output by a factor of 3. Without a filter, `atl ls`
+`project view` to see one state. They cut the output by a factor of 3. The server applies them: a
+narrow `atl ls` also reads less from Anytype, not only prints less. Without a filter, `atl ls`
 lists the entire space, unrelated projects included.
 
 **Folder scope does that for you.** If the current folder is linked to a project, `atl ls` and

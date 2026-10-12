@@ -1,10 +1,12 @@
 import { color } from '../../lib/color.ts'
 import { withContext, type Context } from '../../lib/context.ts'
-import { listTypes, searchObjects } from '../../lib/objects.ts'
+import { searchIssues } from '../../lib/issue-search.ts'
+import { listTypes } from '../../lib/objects.ts'
 import { info, json, out } from '../../lib/output.ts'
+import { listProjects } from '../../lib/projects.ts'
 import { resolveScope, scopeNotice } from '../../lib/scope.ts'
 import { buildGraph } from '../../model/graph.ts'
-import { PROJECT_TYPE_KEY, TICKET_TYPE_KEY, toIssue, type Issue } from '../../model/issue.ts'
+import { toIssue, type Issue } from '../../model/issue.ts'
 import { missingTypes, spaceNotInitialised } from '../../model/schema.ts'
 import type { CommandContext } from '../../router.ts'
 import { applyFilters, parseFilters, type Filters } from './list-filters.ts'
@@ -28,17 +30,29 @@ async function run(context: Context, filters: Filters): Promise<void> {
   const notice = scopeNotice(scope)
   if (notice) info(color.dim(notice))
 
-  const [tickets, projects] = await Promise.all([
-    searchObjects(context.api, context.spaceId, { types: [TICKET_TYPE_KEY] }),
-    searchObjects(context.api, context.spaceId, { types: [PROJECT_TYPE_KEY] }),
-  ])
+  // Projects first: the project filter is pushed as ids, and a space with none is the
+  // sign to check it was bootstrapped before searching on properties it may not have.
+  const projects = await listProjects(context)
+  if (projects.length === 0) await requireBootstrapped(context)
+
+  const { matches: tickets, universe } = await searchIssues(
+    context,
+    {
+      states: filters.states,
+      priorities: filters.priorities,
+      labels: filters.labels,
+      project: scope.project,
+      includeSettled: filters.all,
+    },
+    projects,
+  )
 
   const projectName = new Map(projects.map((p) => [p.id, p.name]))
   const issues = tickets.map(toIssue)
 
-  // The graph is built on **every** issue, not on the filtered rows: a blocker may
-  // live outside the folder scope or outside a state filter.
-  const graph = buildGraph(issues)
+  // The graph is built on the matches **and** every unsettled issue, not on the rows
+  // alone: a blocker may live outside the folder scope or outside a state filter.
+  const graph = buildGraph(universe.map(toIssue))
 
   const all: Row[] = tickets.map((object, index) => {
     const issue = issues[index] as Issue
@@ -58,7 +72,7 @@ async function run(context: Context, filters: Filters): Promise<void> {
   }
 
   if (rows.length === 0) {
-    await explainEmptiness(context, tickets.length + projects.length)
+    info(color.dim('No issue matches.'))
     return
   }
 
@@ -68,14 +82,10 @@ async function run(context: Context, filters: Filters): Promise<void> {
 }
 
 /**
- * A space that was never bootstrapped returns zero results, exactly like an empty
- * one. Telling them apart costs one call, here only, where there is nothing to
- * display anyway.
+ * A space that was never bootstrapped has no `state` property to filter on, and the
+ * API answers that with an opaque 400 rather than an empty list.
  */
-async function explainEmptiness(context: Context, objectCount: number): Promise<void> {
-  if (objectCount === 0) {
-    const missing = missingTypes(await listTypes(context.api, context.spaceId))
-    if (missing.length > 0) throw spaceNotInitialised(missing, context.spaceName)
-  }
-  info(color.dim('No issue matches.'))
+async function requireBootstrapped(context: Context): Promise<void> {
+  const missing = missingTypes(await listTypes(context.api, context.spaceId))
+  if (missing.length > 0) throw spaceNotInitialised(missing, context.spaceName)
 }

@@ -255,6 +255,60 @@ listed, `init` sees it as present and creates nothing: the space is left with an
 CLI believes in. Deleting a dev type is therefore not an undo — recovering means a new space, or a
 new key, neither of which the CLI can do.
 
+### 1.17 Search filters: a flat conjunction on `/v1`, and `/v2` search is not a substitute
+
+`atl ls` used to read every issue of the type and filter in memory. In a space of 1,240 issues,
+861 of them Done, the default view is 299 issues: the unfiltered read is 6.3 MB and 378 ms, the
+filtered one 1.5 MB and 101 ms. `searchObjects` now takes a `filters` field, built by
+`src/lib/search-filters.ts`.
+
+**What `/v1` accepts**, measured on 2026-10-12 against Anytype's current build, under both
+`Anytype-Version: 2025-05-20` and `2025-11-08` (the two answer identically):
+
+- `filters` is `{operator: "and" | "or", conditions: [...]}`. Each condition is
+  `{property_key, condition, <typed value>}`. The conditions are **flat**: a nested `{operator,
+  conditions}` — or the same under a `filters` key — answers 400 `could not determine filter
+  condition type`. "State A or B, and priority C" cannot be written.
+- A select takes **one tag key** under `select`: `eq` and `ne` work. A display name
+  (`"Done"`), a tag id and an array are all refused with a 400. `multi_select` as the value field
+  is refused too. `empty` and `nempty` work on any property.
+- An `objects` property (`linked_projects`) takes `in` with an array of ids. `eq` is refused.
+- A property the type does not have, or a tag key it does not carry, answers 400 `failed to build
+  expression filters` — not an empty list. An unknown *type* in `types` answers an empty list.
+- `ne` includes the objects that have no value at all.
+- **A body that does not match this shape is not rejected; it is ignored** and the search returns
+  everything. The `{and: [...]}` tree with `eq`/`ne`/`in` and `property_key` that an earlier
+  measurement recorded (2026-09-04, against 0.56.5) now returns the full set, 1,240 issues, for
+  `and`, `or`, `eq`, `ne` and `in` alike. That is why the test suite compares the filtered result
+  with the in-memory one against the real space (`test-live/contract.test.ts`) rather than trusting
+  a 200.
+
+**What the CLI pushes.** Only what a flat conjunction can say, as a *narrowing*: a single state
+(`eq`), the settled states excluded (`ne` each), a single priority, each label, and the matching
+projects (`in`). A key is checked against the property's tags before it is sent, so a space whose
+keys differ never sees a 400. What cannot be pushed — several states, several priorities, "no
+priority" (a tag **or** no value) — stays in the in-memory pass, which remains the authority over
+what is shown. `atl ls` also asks for the unsettled issues when the filters left some out, because
+only an unsettled issue blocks and the blocking graph must see them; a relation whose other end is
+settled is no longer reported as posted on one side only.
+
+**`/v2/search` is not used, on either `atl config api` setting.** The selector governs body edits,
+where `/v2` brings a concrete gain; for search, `/v2` is a different and, today, poorer surface:
+
+- The body is `{type, filters | filter, fields, sorts}` with one `type`, filters are
+  `{operator, filters}` trees with `property`/`condition: "equal"|"not_in"|…`/`value`, and a compact
+  string form exists (`state NOT IN ("Done","Canceled")`). It nests, which `/v1` cannot.
+- A select is filtered and returned by **option name**, never by key (`"Done"`; a key answers
+  `invalid filters`). That contradicts the decision to identify states by tag key (§1.13).
+- Rows carry only `id`, `name`, `type` and the properties named in `fields`. There is **no icon**,
+  which `atl ls` needs to report misaligned icons.
+- `priority` is refused on this space — `property key "priority" is ambiguous` as a filter, `unknown
+  property keys` as a field — because the property's real key is an opaque id; only its name,
+  `Priority`, identifies it. `atl` hardcodes no Anytype identifier.
+
+Revisit when `/v2` is stable: nesting would let every condition be pushed, and the in-memory pass
+could go.
+
 ## 2. Frozen decisions
 
 ### 2.1 The CLI runs no Git command
