@@ -119,7 +119,8 @@ atl issue unblock <ref> --by <ref2>     # removes it, on both sides
 
 Idempotent; a direct cycle is refused; `issue start` warns without refusing to start. A relation
 posted by hand in the app fills only one side: `issue view` marks it `(inferred: …)` and `atl ls` offers
-the command that repairs it.
+the command that repairs it, as long as the other end is still unfinished — `atl ls` only reads the
+unfinished issues beyond its rows, so a relation to a done one is no longer reported.
 
 A blocker that is done or cancelled no longer blocks: like Linear, the relation is not deleted but
 demoted under `Related` in `issue view`. Do not offer to remove it — it is history.
