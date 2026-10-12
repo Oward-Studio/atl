@@ -68,9 +68,11 @@ function parseFields(raw: string | undefined): string[] | undefined {
 }
 
 /**
- * The search API does not filter on properties: everything happens here, on the
- * already-loaded objects. `project` is the project the scope settled on, which is not
- * necessarily the one passed as an option.
+ * The authoritative pass. The server already narrowed the search (`searchIssues`), but
+ * it takes only a flat conjunction: "state A or B", or "no priority", cannot be pushed.
+ * This pass applies the whole request to what came back, so it holds whether or not a
+ * condition made it to the server. `project` is the project the scope settled on, which
+ * is not necessarily the one passed as an option.
  */
 export function applyFilters(
   rows: readonly Row[],

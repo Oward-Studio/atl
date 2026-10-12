@@ -294,8 +294,71 @@ type FakeState = {
   createdTags: Record<string, { name: string; color: string }[]>
   /** Ids removed through DELETE, so a suite can assert what was and was not touched. */
   deleted: string[]
+  /** Bodies of the search requests received, to assert what the CLI asks the server. */
+  searches: { types?: string[]; filters?: unknown }[]
   /** Makes the next `/v2` write answer 409, as if the object changed after it was read. */
   conflictNext: boolean
+}
+
+// ------------------------------------------------------------ search filters
+
+type FilterCondition = {
+  property_key?: string
+  condition?: string
+  select?: unknown
+  objects?: unknown
+}
+
+/** Properties a search can filter on, with the tags a select accepts. */
+const FILTERABLE: Record<string, { format: 'select'; tags: readonly { key: string }[] } | { format: 'objects' }> = {
+  state: { format: 'select', tags: TAGS.state },
+  priority: { format: 'select', tags: TAGS.priority },
+  dev_label: { format: 'select', tags: TAGS.dev_label },
+  linked_projects: { format: 'objects' },
+  blocked_by: { format: 'objects' },
+  blocking: { format: 'objects' },
+}
+
+/**
+ * The filter shape the real API accepts, as measured (docs/ANYTYPE-LIMITS.md §1.17): a
+ * flat `{operator, conditions}`; a select compared to one tag key; `in` over objects.
+ * Anything else answers 400 there, so it returns `undefined` here — a test that sends a
+ * shape the API refuses must fail.
+ */
+function applyFilters(data: FakeObject[], filters: unknown): FakeObject[] | undefined {
+  if (filters === undefined) return data
+
+  const spec = filters as { operator?: string; conditions?: FilterCondition[] }
+  if (spec.operator !== 'and' && spec.operator !== 'or') return undefined
+  if (!Array.isArray(spec.conditions)) return undefined
+
+  const tests: ((object: FakeObject) => boolean)[] = []
+  for (const c of spec.conditions) {
+    const target = c.property_key === undefined ? undefined : FILTERABLE[c.property_key]
+    if (!target) return undefined
+    const key = c.property_key as string
+
+    if (target.format === 'select') {
+      if (c.condition !== 'eq' && c.condition !== 'ne') return undefined
+      const wanted = c.select
+      if (typeof wanted !== 'string' || !target.tags.some((t) => t.key === wanted)) return undefined
+
+      const has = (o: FakeObject): boolean =>
+        (o.properties.find((p) => p.key === key) as { select?: { key: string } } | undefined)
+          ?.select?.key === wanted
+      tests.push(c.condition === 'eq' ? has : (o) => !has(o))
+    } else {
+      if (c.condition !== 'in' || !Array.isArray(c.objects)) return undefined
+      const ids = c.objects as string[]
+      tests.push((o) => {
+        const linked = (o.properties.find((p) => p.key === key) as { objects?: string[] } | undefined)?.objects ?? []
+        return linked.some((id) => ids.includes(id))
+      })
+    }
+  }
+
+  const combine = spec.operator === 'and' ? 'every' : 'some'
+  return data.filter((o) => tests[combine]((test) => test(o)))
 }
 
 const page = <T>(data: T[]) => ({
@@ -320,6 +383,7 @@ export async function startFakeAnytype(
     types: options.empty ? [] : TYPES.map((t) => structuredClone(t)),
     createdTags: {},
     deleted: [],
+    searches: [],
     conflictNext: false,
   }
 
@@ -393,14 +457,22 @@ async function handle(
   }
 
   if (path === `/v1/spaces/${SPACE_ID}/search` && req.method === 'POST') {
-    const body = (await readJson(req)) as { types?: string[] }
+    const body = (await readJson(req)) as { types?: string[]; filters?: unknown }
+    state.searches.push(body)
+
     const types = body.types ?? []
     const data = types.includes('dev_project')
       ? state.projects
       : types.includes('dev_issue')
         ? state.tickets
         : []
-    send(200, page(data))
+
+    const filtered = applyFilters(data, body.filters)
+    if (filtered === undefined) {
+      send(400, { message: 'bad input: failed to build expression filters' })
+      return
+    }
+    send(200, page(filtered))
     return
   }
 
