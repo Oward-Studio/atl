@@ -105,12 +105,13 @@ async function run(context: Context, dryRun: boolean): Promise<void> {
 }
 
 /**
- * What the API cannot do, and what it would be dishonest to leave unsaid: the command
- * announces the work it leaves behind.
+ * What the command leaves to the owner, and what it would be dishonest to leave unsaid:
+ * it announces the work it leaves behind. The `/v2` API can do both (docs/ANYTYPE-LIMITS.md
+ * §1.4 and §1.5); `atl init` does not use it yet.
  */
 const MANUAL_STEPS = [
-  'create the default template of each type — the API can neither read nor write a block (docs/ANYTYPE-LIMITS.md §1.4)',
-  'remove the `tag` property from both types — Anytype attaches it by default, and update-type cannot remove it',
+  'create the default template of each type — `atl init` does not create one yet (docs/ANYTYPE-LIMITS.md §1.4)',
+  'remove the `tag` property from both types — Anytype attaches it by default, and `atl init` does not remove it yet',
 ]
 
 /**

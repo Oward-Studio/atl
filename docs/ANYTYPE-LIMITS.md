@@ -8,17 +8,29 @@ Every finding carries its date and its method. That is what makes it re-verifiab
 merely believable, and what prevents probing the same API again in six months — or reintroducing a
 command that was ruled out because it destroyed data.
 
+Unless an entry carries its own date, it was measured on **2026-10-13 against Anytype 0.57.4**
+(API version 2025-11-08 on `/v1`, plus the `/v2` pre-release). A finding that no longer reproduces on
+that build is not kept: this file describes the version in use, not the history of the API.
+
 Anytype content — issue titles, descriptions, acceptance criteria — is data stored in the owner's
 space rather than interface strings, and the CLI never rewrites it to suit itself.
 
 ## 1. What the API cannot do
 
-### 1.1 Comments do not exist
+### 1.1 Comments exist on `/v2`, and not on `/v1`
 
-The API does not expose an object's discussion. To pass a detail along on an issue, write it in the
-**body** (`atl issue edit --description`), not in the discussion: nothing there will be read.
+An object's discussion is a chat. On `/v2`:
 
-Accepted consequence: the `atl-issue-comments` issue stays in the backlog, blocked upstream.
+- `GET /v2/spaces/{id}/objects/{id}` serves its id as `discussion` once one exists; `/v1` reads
+  carry no such field.
+- `POST /v2/spaces/{id}/objects/{id}/discussion` starts it (`{"id", "created": true}`), and answers
+  with the same id when it already exists. `?dry_run=true` reports without creating.
+- `POST /v2/spaces/{id}/chats/{chat_id}/messages` with `{"text"}` posts a comment, and
+  `GET …/messages` reads them back (`id`, `author`, `at`, `text`, plus `state.unread_messages`).
+
+Measured on 2026-10-13 on a throwaway issue (deleted afterwards). `atl` does not read or write
+comments yet; the `atl-issue-comments` issue is no longer blocked upstream. Until it ships, a detail
+worth keeping goes in the body (`atl issue edit --description`).
 
 ### 1.2 Markdown does not survive a round trip
 
@@ -29,9 +41,13 @@ Accepted consequence: the `atl-issue-comments` issue stays in the backlog, block
   it — in that case, point the user to the application. On `/v2` (the default) they edit blocks and
   the table is never rewritten.
 - **Escapes accumulate**, one level per write → read cycle: measured 2 → 3 → 4 backslashes on the
-  real space. Hence `forWriting` (`src/model/acceptance.ts`), which unescapes to a fixed point
+  real space. Of the punctuation tried on 2026-10-13, `_` and `|` come back preceded by a backslash,
+  and a single `~t~` is rewritten as `~~t~~`; `:` `.` `( )` `[ ]` `#` `*` backticks and `·` pass
+  verbatim. Hence `forWriting` (`src/model/acceptance.ts`), which unescapes to a fixed point
   instead of making a single pass. Verified: 4 → 1, then stable.
 - **Checkboxes do survive**, which is what makes acceptance criteria viable at all.
+- The returned markdown starts with a blank line and drops the blank lines between blocks; a
+  heading written on the first line keeps its hashes (measured 2026-10-13).
 
 Re-measured on 2026-10-11 with `Anytype-Version: 2025-11-08`: three read → write cycles through
 `/v1` still add two `<br>` per table cell and one backslash level per cycle. The newer version does
@@ -56,50 +72,58 @@ pre-release that is served alongside `/v1`, which it leaves unchanged.
 
 ### 1.3 HTML entities are stored, not merely displayed
 
-A probe named `sonde <marqueur> html` came back **verbatim**: the API re-encodes nothing. An `&amp;`
+A probe named `sonde <marqueur> html &amp; "q"` came back **verbatim** on `/v1` and `/v2` alike
+(2026-10-13): the API re-encodes nothing. An `&amp;`
 in a title is therefore **real data corruption**, not a display artefact. `atl ls` reports it
 instead of hiding it — five titles had been damaged before this was understood.
 
-### 1.4 A template's blocks are invisible
+### 1.4 A template's blocks are visible and writable on `/v2`, not on `/v1`
 
-Re-read on 2026-08-10: `GET /types/{id}/templates` followed by `get-object` on each returns
+On `/v1`, `GET /types/{id}/templates` followed by `get-object` still returns one line of text for
+`dev_project` and an empty string for `dev_issue`: the dynamic table block is invisible there, and
+markdown cannot express a view block.
 
-| Template | `markdown` |
-|---|---|
-| `dev_project` | `"<the intro paragraph>   \n   \n"` |
-| `dev_issue` | `"   \n"` |
+On `/v2` (measured on 2026-10-13):
 
-One line of text, and an empty string. The dynamic table block listing linked issues — the whole
-point of the template — **does not exist for the API**, and cannot: markdown has no way to express
-a view block.
+- `GET /v2/spaces/{id}/templates?type=<key>` lists a type's templates (`template_for`), and
+  `GET /v2/spaces/{id}/objects/{template_id}` returns its blocks. The `dev_project` template reads
+  `paragraph`, `dataview`, `paragraph`: the `dataview` is there, with its `object_id`, its property
+  list and its views.
+- `POST /v2/spaces/{id}/templates` creates a template for a type, blocks included (tried on a
+  throwaway type), where `/v1` could create none.
 
-**Two consequences.** Updating a template does not benefit objects already created, and *no command
-will ever fix that*: a resynchronisation would replace project bodies with a line of text and delete
-their table. And **`atl project new` never passes a custom body** to a project — the body comes from
-the template, and a custom one would overwrite it. For an issue, by contrast, the body *is* the
-description.
+Still true: a template is a model, so editing it does not change objects already created from it;
+and **`atl project new` never passes a custom body** to a project, since on `/v1` that would
+overwrite the dataview. Whether a `/v2` write could resynchronise existing project bodies is not
+measured. `project new` and `issue new` still create without a template when a type has none.
 
-A brand-new type has **no** template, and none can be created: neither `template_id` nor
-`is_template` on `create-object` produces one. `project new` and `issue new` degrade cleanly — they
-create without one.
+### 1.5 Removing a property from a type
 
-### 1.5 `update-type` cannot remove a property
+`/v1` `update-type` **replaces** the property list: a call passing `[one]` leaves only that one (and
+`backlinks`, which Anytype keeps), a call passing `[]` leaves `backlinks` alone. It never merges, so
+any call must pass the complete desired list, rebuilt from `list-properties`. Dropping `ref` and
+`backlinks` from `dev_issue` this way is how a declaration was once lost without notice.
 
-It accepts the call and does nothing. It can **add** one (`github_link` was added that way).
-Removing happens in the application.
+`/v2` adds targeted operations: `PATCH /v2/spaces/{id}/types/{key}` with `{"ops": [{"op":
+"add_property" | "remove_property", "property": "<key>"}]}` changes one declaration and answers with
+what it `removed`. `remove_property` took `tag` off a throwaway type (2026-10-13); the property and
+its values stay in the space. `backlinks` is a reserved system property and stays attached.
 
 This matters for `atl init`: Anytype attaches `tag` and `backlinks` to every new type, and `tag` is
-the owner's personal vocabulary — **the CLI never writes to it**, it uses `dev_label`. Removing
-`tag` from the created types is therefore a manual chore, which `atl init` announces.
+the owner's personal vocabulary — **the CLI never writes to it**, it uses `dev_label`. Removing `tag`
+from the created types, which `atl init` still announces as a manual chore, is now possible through
+`remove_property`.
 
 ### 1.6 The palette has no green
 
-`bad input: invalid color: "green"` — measured across the eleven colours, `green` alone is refused,
-even though the MCP schema advertises it. `lime` stands in for the Done state.
+`bad input: invalid color: "green"` on `/v1` (2026-10-13). The `/v2` schemas list ten colours —
+`grey yellow orange red pink purple blue ice teal lime` — and `green` is not among them. `lime`
+stands in for the Done state.
 
 ### 1.7 A fresh space is not empty
 
-**34 native properties** exist before any bootstrapping, including `linked_projects` with format
+*Measured on 2026-08 on a fresh space; a populated space lists 77 properties today, so the count
+cannot be re-taken here.* **34 native properties** exist before any bootstrapping, including `linked_projects` with format
 `objects` — exactly what the schema expects. `atl init` therefore creates only 10, and reuses the
 existing one.
 
@@ -109,14 +133,15 @@ space the CLI reads wrongly, silently.
 
 ### 1.8 There is no `delete-space`
 
-`create-space` exists, its inverse does not. Any space created for a test has to be deleted by hand
-in the application. That is why the `atl init` acceptance run happened on a space the owner had
-created himself.
+`create-space` exists, its inverse does not: `DELETE /v1/spaces/{id}` and `DELETE /v2/spaces/{id}`
+both answer 404 (2026-10-13). Any space created for a test has to be deleted by hand in the
+application. That is why the `atl init` acceptance run happened on a space the owner had created
+himself.
 
 ### 1.9 The API does not know which space is open
 
-`/v1/spaces` returns `id, name, icon, description, gateway_url, network_id`. Neither "current" nor
-"last opened".
+`/v1/spaces` returns `id, name, icon, description, gateway_url, network_id`, and `/v2/spaces` only
+`id, name`. Neither "current" nor "last opened" (2026-10-13).
 
 The one nearby signal is a trap: `last_opened_date` belongs to **objects**, and also fires on those
 `atl` creates. The last thing the CLI wrote would therefore look like the space being worked in, and
@@ -125,13 +150,16 @@ configuration (`atl space` to change it, `ATL_SPACE` to target one for a single 
 
 ### 1.10 A missing type fails without saying so
 
-On a space that was never bootstrapped, `create-object` answers `HTTP 500 — failed to create
+On a space that was never bootstrapped, `/v1` `create-object` answers `HTTP 500 — failed to create
 object`, and a search by type returns **zero results silently** — indistinguishable from an empty
-space. Hence the guard: `issue new`, `project new` and `ls` exit with **4** and name `atl init`.
+space (both re-measured on 2026-10-13 with an unknown type key). `/v2` is clearer: `HTTP 400 — type
+"…" not found in space`. Hence the guard: `issue new`, `project new` and `ls` exit with **4** and
+name `atl init`.
 
 ### 1.11 Relations have no reciprocal
 
-Writing `A.blocked_by = [B]` leaves `B.blocking` **empty**. Verified on the real space. The CLI
+Writing `A.blocked_by = [B]` leaves `B.blocking` **empty**. Verified on the real space, again on
+2026-10-13. The CLI
 therefore writes **both sides**, otherwise `atl issue view B` would not show that B blocks A.
 
 A live contract test locks this finding down: if it ever fails, Anytype now maintains the inverse
@@ -146,7 +174,7 @@ reserved system property`.
 It still cannot carry the reciprocal, for two measured reasons:
 
 - **it loses direction**: with `A.blocked_by = [B]` and `A.blocking = [C]`, one reads
-  `B.backlinks = [A]` **and** `C.backlinks = [A]`;
+  `B.backlinks = [A]` **and** `C.backlinks = [A]` (re-measured 2026-10-13);
 - **it aggregates everything**: 28 backlinks on a project, one per issue declaring it in
   `linked_projects`, plus body mentions.
 
@@ -155,51 +183,45 @@ of Notion's synced relation.
 
 ### 1.13 Renaming: what follows, what does not
 
-**Renaming a tag propagates** to every object carrying it, in **under 300 ms**. Measured across 234
-issues, none of which had to be rewritten: the name is resolved from the tag id at read time.
+Measured on 2026-10-13 on throwaway properties, tags and types, each read back from an object that
+carried them.
 
-The propagation is **asynchronous**, which is worth knowing before probing it — reading an object at
-0 ms returns the stale value and suggests the opposite conclusion.
-
-**Renaming a key propagates too**, for a tag as for a property. Every object reported the new key
-immediately afterwards, with no migration on the CLI's side. Objects therefore reference properties
-and tags **by id**, a key being a label on the definition rather than a copy stored per object.
-
-A key can only be renamed **through the API**: the application exposes a type's or a property's
-name, never its key.
-
-**Renaming a type key** goes through `update-type`, which means passing the full property list back
-(see below).
-
-**Renaming a property display name is free.** The CLI resolves properties by key, never by name.
-
-**`update-type` replaces the property list, it does not merge it.** Passing `properties: [one]`
-dropped `ref` and `backlinks` from `dev_issue` — a declaration lost in one call, and only noticed
-because the type was read back. Any call must pass the **complete** desired list, rebuilt from
-`list-properties`.
-
-Whether renaming a property **key** follows on objects is **not established**: both attempts to
-measure it were inconclusive, the property never appearing on the object within the observation
-window. Until it is measured, treat a key rename as unsafe — the keys are internal identifiers,
-invisible in the application, so there is nothing to gain by trying.
+- **A tag's name follows at once.** Read at 0 ms, the object already carried the new name; the name is
+  resolved from the tag id at read time, so no object is rewritten.
+- **A tag's key follows too**, as does **a property's key**: the object reported the new key
+  immediately, with no migration on the CLI's side. Objects reference properties and tags **by id**,
+  a key being a label on the definition rather than a copy stored per object.
+- **A bundled property's key cannot be changed**: the call was refused (HTTP 403 on 0.57.4).
+- **A type's key is renamed in place**, objects follow, and **the old key keeps resolving**, in a
+  search by type and in `create-object` alike. Passing the full property list back is required (§1.5).
+- **An object changes type** through `PATCH /objects/{id}` with `type_key`.
+- A key can only be renamed **through the API**: the application exposes a name, never a key.
+- **Renaming a display name is free.** The CLI resolves properties by key, never by name.
 
 ### 1.14 Deleting an object archives it, and only the application undoes that
 
-`DELETE` on an object does not destroy it. Measured by reading the object back afterwards: it
-survives with `archived: true`, name, properties and body intact, and simply stops appearing in
-searches — which is what makes it look destroyed from the CLI.
+`DELETE` on an object does not destroy it. Measured by reading the object back after a second or so
+(the archive is asynchronous: an immediate read still shows `archived: false`): it survives with
+`archived: true`, name, properties and body intact, and simply stops appearing in searches — which is
+what makes it look destroyed from the CLI.
 
-Nothing brings it back through the API. Every route was tried on a throwaway issue:
+Nothing brings it back through the API. Every route was tried on a throwaway issue (2026-10-13):
 
 | Attempt | Result |
 |---|---|
 | `DELETE` again | idempotent, still archived |
-| `DELETE …?permanently=true`, `?permanent=true` | **accepted and ignored** |
-| `/bin`, `/trash`, `/bin/empty` | 404, no such endpoint |
+| `DELETE …?permanently=true` | **accepted and ignored** |
 | `update-object` with `archived: false` | **answers 200 and restores nothing** |
+| `/v2` `PATCH` on an archived object | refused (403) |
 
-Two of those answer success while doing nothing, the same trap as `update-type` refusing to remove
-a property (§1.5). Take an OK from this API as *accepted*, not as *done*, and read back to know.
+Two of those answer success while doing nothing, the same trap as an `objects` property ignoring a
+type restriction (§1.16). Take an OK from this API as *accepted*, not as *done*, and read back to
+know.
+
+`/v2` has its own `DELETE /v2/spaces/{id}/objects/{id}` (with `?dry_run=true`), which archives the
+same way. It **refuses an object the calling key did not create**: a dry run on an issue made in the
+application answers 403. Whether `/v1` `DELETE`, which `atl issue delete` uses, applies the same rule
+is not measured, since the test would archive a real object.
 
 So there is no permanent deletion and no restore from the CLI: what it can do is send an object to
 the bin, and emptying or recovering it happens in the application. Commands therefore say **moved
@@ -217,10 +239,11 @@ Read back, an `objects` property carries four fields and no more:
 The application offers a restriction — *limit object types* on a relation — and the API neither
 reports it nor accepts it. Five plausible field names were tried on a throwaway property and every
 one was **accepted and ignored**, leaving the property unchanged on read: `object_types`,
-`objectTypes`, `types`, `limit_object_types`, `relation_format_object_types`. Another 200 that means
-*received*, not *done* (§1.5, §1.14).
+`objectTypes`, `types`, `limit_object_types`, `relation_format_object_types` (`object_types` and
+`types` tried again on 2026-10-13). Another 200 that means *received*, not *done* (§1.14). The
+`/v2` property schema has no such field either.
 
-`linked_projects` is worth a separate warning: it is **native**, one of the 34 properties a brand-new
+`linked_projects` is worth a separate warning: it is **native**, one of the properties a brand-new
 space already carries, and it is **declared by Anytype's own `task` type**. Reusing it means sharing
 a field with Anytype's tasks rather than owning one, which is why `atl init` creates nine properties
 and not ten. Prefixing atl's own keys is tracked as `atl-prefix-keys`.
@@ -237,11 +260,12 @@ bypasses that, and a link the CLI cannot resolve is displayed rather than repair
 
 ### 1.15 Deleting does not free a key
 
-Deletion is logical, not physical, and the key stays reserved for good. Measured on the real space:
+Deletion is logical, not physical, and the key stays reserved for good. Re-measured on 2026-10-13
+by deleting a throwaway then creating it again under the same key:
 
 | | after `DELETE` |
 |---|---|
-| a property | no longer listed, yet `create-property` refuses its key |
+| a property | **still listed**, and `create-property` refuses its key |
 | a type | **still listed**, and `create-type` refuses its key |
 
 Two consequences.
@@ -308,6 +332,23 @@ where `/v2` brings a concrete gain; for search, `/v2` is a different and, today,
 
 Revisit when `/v2` is stable: nesting would let every condition be pushed, and the in-memory pass
 could go.
+
+**Reading a `ref` on the server works, through a filter and not through full-text.** Measured on
+2026-10-13 with a throwaway issue: on `/v1`, `query=<ref>` finds nothing (full-text does not index
+`ref` values), while `{property_key: "ref", condition: "eq" | "contains", text: "…"}` returns it;
+on `/v2`, `filter: 'ref = "…"'` and `ref CONTAINS "…"` do too. Resolving a reference no longer
+requires reading every issue.
+
+**Projection:** `/v1` ignores `properties` and `fields` (a row keeps all its properties, 13 on an
+issue). `/v2` honours `fields`, returning only the properties named.
+
+### 1.18 The version header guards nothing
+
+`Anytype-Version` is not checked on `/v1`: `2099-01-01` and an absent header both answer exactly like
+`2025-05-20` (a search returned the same total, 2026-10-13). `/v2` takes no such header. The API
+announces itself as 2025-11-08 (`/docs/openapi.json`: title "Anytype API v2", version `2025-11-08`).
+`atl` sends `2025-05-20` on `/v1`; the value is a bet on the header never being enforced, which is why
+`epingler-la-version-d-api-sur-2025-11-08` aligns it with the version the API announces.
 
 ## 2. Frozen decisions
 
@@ -507,13 +548,12 @@ that doubles it.
 touches the remaining hundred milliseconds, and gets lost there quickly: taking `atl ls` from four
 calls down to two gained 20 ms of internal time, invisible end to end.
 
-What was tried without success, and should not be tried again:
+What was tried, and where it stands on 2026-10-13:
 
-- **no projection.** `properties: [ref, state]` and `fields=ref` are ignored; the response weighs
-  229,817 tokens either way. The absorbed volume is structural.
-- **full-text search does not index `ref` values.** `query=atl-sobriete` returns zero results where
-  `query=sobriete` returns one: resolving a reference through a narrow query is impossible, so
-  reading every issue is unavoidable.
+- **no projection on `/v1`.** `properties: [ref, state]` and `fields=ref` are ignored; the response
+  weighs the same either way. `/v2` search does take `fields` (§1.17).
+- **full-text search does not index `ref` values**, on `/v1`. A reference does resolve through a
+  `ref` filter, though (§1.17), so reading every issue is no longer unavoidable.
 
 ### 3.10 What the tests prove, and what they cannot
 
