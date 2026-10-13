@@ -12,6 +12,12 @@ Unless an entry carries its own date, it was measured on **2026-10-13 against An
 (API version 2025-11-08 on `/v1`, plus the `/v2` pre-release). A finding that no longer reproduces on
 that build is not kept: this file describes the version in use, not the history of the API.
 
+Sources, besides measurement: Anytype's changelog (`developers.anytype.io/docs/reference/changelog`),
+the API reference, and the OpenAPI document the application serves at `/docs/openapi.json` — which on
+0.57.4 describes `/v2` only. **`/v2` is a pre-release**: the changelog says its "surface can change
+without a new API version being minted". Every finding below that rests on `/v2` is therefore less
+stable than one resting on `/v1`.
+
 Anytype content — issue titles, descriptions, acceptance criteria — is data stored in the owner's
 space rather than interface strings, and the CLI never rewrites it to suit itself.
 
@@ -28,7 +34,9 @@ An object's discussion is a chat. On `/v2`:
 - `POST /v2/spaces/{id}/chats/{chat_id}/messages` with `{"text"}` posts a comment, and
   `GET …/messages` reads them back (`id`, `author`, `at`, `text`, plus `state.unread_messages`).
 
-Measured on 2026-10-13 on a throwaway issue (deleted afterwards). `atl` does not read or write
+Measured on 2026-10-13 on a throwaway issue (deleted afterwards), and described by the served
+OpenAPI document (`Start an object's discussion`); the changelog does not mention it. `/v1` has a chat
+API (since 2026-06-01) that targets Chat objects, not an object's thread. `atl` does not read or write
 comments yet; the `atl-issue-comments` issue is no longer blocked upstream. Until it ships, a detail
 worth keeping goes in the body (`atl issue edit --description`).
 
@@ -332,6 +340,24 @@ where `/v2` brings a concrete gain; for search, `/v2` is a different and, today,
 
 Revisit when `/v2` is stable: nesting would let every condition be pushed, and the in-memory pass
 could go.
+
+**The documented route is different, and better.** The changelog for 2025-11-08 announces "filter
+listing and search endpoints using query parameters", and the reference gives `GET
+/v1/spaces/{id}/objects?type=…&created_date[gte]=…&tags[in]=a,b`: select values by tag **key or id**,
+objects by id, comma-separated values for `[in]`. The body `filters` documented above is nowhere in
+the public reference or guide; it works, and is what `atl` sends today. Measured on 2026-10-13
+against the real space, on `GET /v1/spaces/{id}/objects` with `type=dev_issue`, each total equal to
+filtering the full result in memory:
+
+- `state=done`, `state[in]=todo,in_progress`, `state[nin]=done,canceled`, `priority[in]=high,urgent`,
+  `priority[empty]=true` and the combination of `state[nin]` with `priority=high` all match, and every
+  row is a full object (icon, properties). **Multi-valued conditions are expressible**, which the body
+  form cannot do.
+- `state[ne]` repeated for two values, and `[not_in]`, answer 400; `[nin]` is the spelling.
+- An unknown property or an unknown tag key answers 400 `invalid filter at index N`, not an empty list.
+- The parameters are **ignored on `POST /v1/spaces/{id}/search`**: the list endpoint is the one that
+  filters.
+- `linked_projects[in]=<id>` on a name that is not an id returned nothing; ids are required.
 
 **Reading a `ref` on the server works, through a filter and not through full-text.** Measured on
 2026-10-13 with a throwaway issue: on `/v1`, `query=<ref>` finds nothing (full-text does not index
