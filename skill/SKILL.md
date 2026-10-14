@@ -263,17 +263,17 @@ a dynamic table that a custom body would overwrite.
 
 ## Known limits
 
-The Anytype API **does not expose an object's comments**: to pass a detail along on an issue, write it
-in the body (`atl issue edit --description`), not in the discussion.
+The Anytype `/v2` API now has comments (an object's discussion is a chat), but **`atl` does not read or
+write them yet**: to pass a detail along on an issue, write it in the body
+(`atl issue edit --description`), where `atl issue view` shows it.
 
-**Deleting does not free a key.** A deleted property stops being listed but its key stays refused
-for good; a deleted type stays listed *and* keeps its key. So `atl init` cannot re-create a dev type
+**Deleting does not free a key.** A deleted property or type stays listed and its key stays
+refused for good. So `atl init` cannot re-create a dev type
 someone deleted — it sees the archived one and creates nothing. Say so rather than retrying.
 
-**A template cannot be resynchronised.** The API does not see a template's blocks — it returns one
-line of text, never the dynamic table — because `update-object` accepts markdown only, which cannot
-express a view block. Updating a template therefore does not benefit existing objects, and no command
-will fix it: point the user to the app.
+**A template cannot be resynchronised.** A template is a model: updating it does not change objects
+already created from it, and no `atl` command rewrites their bodies. Through `/v1` the template's
+dynamic table is invisible (one line of text); `/v2` shows it. Point the user to the app.
 
 `atl config api v1|v2` picks how issue bodies are read and edited; `ATL_API` overrides it for one
 command. `v2` (the default) edits blocks. `v1` rewrites the markdown body and is the fallback should
