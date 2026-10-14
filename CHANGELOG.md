@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/Oward-Studio/atl/compare/v1.2.1...v1.3.0) (2026-10-14)
+
+
+### Features
+
+* push the atl ls filters to the Anytype search ([#27](https://github.com/Oward-Studio/atl/issues/27)) ([ce0a0d5](https://github.com/Oward-Studio/atl/commit/ce0a0d5008b5bd9c0c89dd6d7e7222012d749b83))
+
 ## [1.2.1](https://github.com/Oward-Studio/atl/compare/v1.2.0...v1.2.1) (2026-10-11)
 
 
